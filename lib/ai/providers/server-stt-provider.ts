@@ -1,0 +1,3 @@
+import { failure } from '../errors'
+import type { SttProvider } from '../types'
+export const serverSttProvider:SttProvider={id:'server',isSupported:()=>typeof navigator==='undefined'||navigator.onLine,async transcribe(r,c,signal){if(!c.consentGranted)return failure(c.requestId,'consent_required','Audio consent required',this.id,true);try{const response=await fetch('/api/ai/transcribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({request:{...r,audioBlob:undefined},context:c}),signal});return await response.json()}catch{return failure(c.requestId,'network_error','STT server request failed',this.id,true)}}}

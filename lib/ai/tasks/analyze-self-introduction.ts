@@ -1,0 +1,1 @@
+export const analyzeSelfIntroductionTask=(...args:Parameters<typeof import('../ai-service').aiService.analyzeSelfIntroduction>)=>import('../ai-service').then(x=>x.aiService.analyzeSelfIntroduction(...args))

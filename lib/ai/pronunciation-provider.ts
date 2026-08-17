@@ -1,0 +1,11 @@
+export type PronunciationProviderName='none'|'mock'|'server'
+export type PronunciationProviderCapabilities={wordAlignment:boolean;phonemeAlignment:boolean;wordAccuracy:boolean;phonemeAccuracy:boolean;stressAnalysis:boolean;intonationAnalysis:boolean}
+export type PronunciationAnalysisInput={audioReference?:string;transcript:string;language:string|null}
+export type PronunciationWordResult={word:string;startMs?:number;endMs?:number;accuracyScore?:number;status:'clear'|'review'|'omitted'|'inserted'|'unknown';phonemes?:Array<{phoneme:string;accuracyScore?:number;startMs?:number;endMs?:number}>}
+export type PronunciationSegmentResult={text:string;startMs?:number;endMs?:number;words?:PronunciationWordResult[]}
+export type PronunciationAnalysisResult={provider:PronunciationProviderName;status:'not_available'|'not_configured'|'success'|'partial'|'failed';language:string|null;overall?:{pronunciationScore?:number;completenessScore?:number;fluencyScore?:number;prosodyScore?:number};words?:PronunciationWordResult[];segments?:PronunciationSegmentResult[];providerMetadata?:{model?:string;version?:string}}
+export interface PronunciationProvider{name:PronunciationProviderName;capabilities:PronunciationProviderCapabilities;isAvailable():boolean;analyze(input:PronunciationAnalysisInput,options?:{signal?:AbortSignal}):Promise<PronunciationAnalysisResult>}
+const noneCapabilities:PronunciationProviderCapabilities={wordAlignment:false,phonemeAlignment:false,wordAccuracy:false,phonemeAccuracy:false,stressAnalysis:false,intonationAnalysis:false}
+export const unconfiguredPronunciationProvider:PronunciationProvider={name:'none',capabilities:noneCapabilities,isAvailable:()=>false,async analyze(input){return{provider:'none',status:'not_configured',language:input.language}}}
+const providers=new Map<PronunciationProviderName,PronunciationProvider>([['none',unconfiguredPronunciationProvider]])
+export const pronunciationProviderRegistry={register(provider:PronunciationProvider){providers.set(provider.name,provider)},get(name:PronunciationProviderName='none'){return providers.get(name)??unconfiguredPronunciationProvider},active(){return providers.get('server')?.isAvailable()?providers.get('server')!:unconfiguredPronunciationProvider}}

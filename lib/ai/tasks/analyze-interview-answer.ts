@@ -1,0 +1,1 @@
+export const analyzeInterviewAnswerTask=(...args:Parameters<typeof import('../ai-service').aiService.analyzeInterviewAnswer>)=>import('../ai-service').then(x=>x.aiService.analyzeInterviewAnswer(...args))

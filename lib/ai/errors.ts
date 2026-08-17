@@ -1,0 +1,4 @@
+import type { AiErrorCode, AiFailureResponse, AiServiceError } from './types'
+export const aiError=(code:AiErrorCode,message:string,details?:string):AiServiceError=>({code,message,retryable:['timeout','network_error','provider_unavailable'].includes(code),details})
+export const failure=(requestId:string,code:AiErrorCode,message:string,providerId?:string,fallbackAvailable=true):AiFailureResponse=>({ok:false,requestId,providerId,error:aiError(code,message),fallbackAvailable})
+export function normalizeAiError(error:unknown):AiServiceError{if(error instanceof DOMException&&error.name==='AbortError')return aiError('cancelled','Request cancelled');if(error instanceof Error&&/timeout/i.test(error.message))return aiError('timeout','Request timed out',error.message);if(error instanceof TypeError)return aiError('network_error','Network request failed',error.message);return aiError('unknown','AI request failed',error instanceof Error?error.message:undefined)}

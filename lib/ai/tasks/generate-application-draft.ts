@@ -1,0 +1,1 @@
+export const generateApplicationDraftTask=(...args:Parameters<typeof import('../ai-service').aiService.generateApplicationDraft>)=>import('../ai-service').then(x=>x.aiService.generateApplicationDraft(...args))

@@ -1,0 +1,5 @@
+import type { AirlineMaster } from './airline-master-data'
+
+export function generateAirlineResearchPrompt(airline: AirlineMaster) {
+  return `Research airline cabin-crew preparation data for ${airline.name} (${airline.country}).\n\nPurpose: create a reviewable evidence pack for a cabin-crew career coach. Do not infer missing facts.\n\nRequired research areas:\n1. Profile: brand identity, service philosophy, customer focus, safety culture\n2. Recruitment: official careers page, eligibility, documents, process and dates\n3. Interview: publicly supported question patterns, competencies and possible follow-ups\n4. Application: supported motivation links, recommended experience connections and unsupported claims to avoid\n\nSource requirements:\n- Prefer official careers pages and official company documents (grade A).\n- Official interviews or videos may be grade B. Multiple independently corroborated sources may be grade C.\n- Include title, URL, publication/check date, and confidence for every fact.\n- Mark unverified claims clearly; do not present candidate reports as official facts.\n- Never collect applicant personal data.`
+}

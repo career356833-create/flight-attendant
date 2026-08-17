@@ -1,0 +1,144 @@
+{
+  "careerTargetQuestion": "Which airline environment would you like to prepare for first?",
+  "careerTargets": {
+    "full_service": { "title": "Full-service airlines", "description": "Prepare for refined service, reliable performance, and brand-led hiring standards." },
+    "low_cost_or_hybrid": { "title": "Low-cost or hybrid airlines", "description": "Prepare for efficient service, proactive customer care, and flexible responses." },
+    "regional_or_short_haul": { "title": "Regional or short-haul airlines", "description": "Build practical skills for fast service operations and frequent-flight environments." },
+    "undecided": { "title": "I have not decided yet", "description": "Assess shared cabin-crew capabilities first and discover the environment that fits you." }
+  },
+  "preparationStageQuestion": "What stage are you at in your recruitment preparation?",
+  "preparationStages": {
+    "getting_started": { "title": "Getting started", "description": "You are reviewing the role, basic eligibility, and your preparation direction." },
+    "application_preparation": { "title": "Preparing application materials", "description": "You are preparing applications, experience history, introductions, photos, or video materials." },
+    "assessment_preparation": { "title": "Preparing for interviews and assessments", "description": "You are preparing for interviews, group activities, role plays, and language assessments." },
+    "experienced_applicant": { "title": "Experienced applicant", "description": "You are improving gaps based on real application or assessment experience." }
+  },
+  "preparedItemsQuestion": "Select everything you currently have prepared.",
+  "preparedItemsSupporting": "We will use your existing experience and materials to shape your next training steps.",
+  "preparedItemGroups": {
+    "experience_based": "EXPERIENCE",
+    "application_readiness": "APPLICATION READINESS",
+    "assessment_readiness": "ASSESSMENT READINESS"
+  },
+  "preparedItems": {
+    "customer_service_experience": { "title": "Customer service experience", "description": "I have organized examples of serving customers or solving their problems." },
+    "teamwork_experience": { "title": "Teamwork and collaboration experience", "description": "I have organized examples of contributing to a team or resolving conflict." },
+    "application_profile": { "title": "Application and profile information", "description": "I have organized my work, education, qualifications, and application information." },
+    "introduction_and_motivation": { "title": "Introduction and motivation", "description": "I have organized my strengths and reasons for applying to an airline." },
+    "airline_and_role_research": { "title": "Airline and role research", "description": "I have researched the target airline and the cabin-crew role." },
+    "core_interview_answers": { "title": "Core interview answers", "description": "I have prepared answers about strengths, gaps, experience, and role understanding." },
+    "recruitment_language_answers": { "title": "Recruitment-language answers", "description": "I have prepared introductions and interview answers in the recruitment language." },
+    "situational_and_safety_answers": { "title": "Situational and safety answers", "description": "I have prepared for customer conflict, irregular situations, and safety questions." },
+    "video_interview_preparation": { "title": "Video assessment preparation", "description": "I have prepared for recorded interviews or online assessment settings." },
+    "none_prepared": { "title": "I have not prepared any of these yet" }
+  },
+  "improvementAreasQuestion": "Which areas would you most like to improve first?",
+  "improvementAreasSupporting": "Choose up to two areas to prioritize during your first week.",
+  "improvementAreas": {
+    "application_and_profile": { "title": "Application and profile expression", "description": "Clearly present your experience and strengths in application materials." },
+    "introduction_and_motivation": { "title": "Introduction and motivation", "description": "Communicate your strengths and reasons for applying persuasively." },
+    "interview_communication": { "title": "Interview answer structure", "description": "Understand the question and communicate experience in a structured way." },
+    "recruitment_language": { "title": "Recruitment-language communication", "description": "Answer naturally in the language used during recruitment." },
+    "customer_situation_handling": { "title": "Customer situation handling", "description": "Respond calmly to varied passenger needs and conflict." },
+    "safety_and_role_judgment": { "title": "Safety and role judgment", "description": "Prioritize safety and make and report appropriate decisions." },
+    "teamwork_and_group_assessment": { "title": "Teamwork and group assessment", "description": "Collaborate with other applicants and express views with balance." },
+    "presence_and_delivery": { "title": "Presence and delivery", "description": "Manage expression, eye contact, posture, pronunciation, and delivery." },
+    "airline_and_role_understanding": { "title": "Airline and role understanding", "description": "Connect airline and cabin-crew research to your answers." }
+  },
+  "dailyStudyTime": {
+    "question": "On average, how much time can you prepare each day?",
+    "supporting": "We will adjust your daily training load to the time you select.",
+    "options": {
+      "fifteen_minutes": { "title": "15 minutes", "description": "Complete one essential task without feeling overwhelmed." },
+      "thirty_minutes": { "title": "30 minutes", "description": "Train two essential capabilities in balance." },
+      "sixty_minutes": { "title": "1 hour", "description": "Combine interview practice with application preparation." },
+      "ninety_plus_minutes": { "title": "1 hour 30 minutes or more", "description": "Prepare systematically with focused practice, feedback, and review." }
+    }
+  },
+  "experienceLibrary": {
+    "title": "My Experience Library", "supporting": "Reuse one structured experience across interview questions and application materials.",
+    "categories": { "customer_service":"Customer service", "problem_solving":"Problem solving", "teamwork":"Teamwork", "conflict_resolution":"Conflict resolution", "safety_judgment":"Safety judgment", "responsibility":"Responsibility", "failure_and_growth":"Failure and growth", "adaptability":"Adaptability", "leadership":"Leadership", "multicultural":"Multicultural experience", "other":"Other" },
+    "competencies": { "customer_orientation":"Customer orientation", "communication":"Communication", "teamwork":"Teamwork", "problem_solving":"Problem solving", "conflict_management":"Conflict management", "safety_awareness":"Safety awareness", "responsibility":"Responsibility", "adaptability":"Adaptability", "leadership":"Leadership", "empathy":"Empathy", "service_recovery":"Service recovery", "cross_cultural_communication":"Cross-cultural communication" },
+    "statuses": { "draft":"Draft", "basic_complete":"Basic complete", "structured":"Structured", "interview_ready":"Interview ready" },
+    "coaching": ["What was the situation?","What was your role or responsibility?","What action did you personally take?","What result followed?","What did you learn or improve?","How does this connect to cabin-crew work?"],
+    "empty":"No saved experiences yet.\nStructure your first experience and reuse it in interview answers.", "error":"Experience data could not be loaded.", "deleteConfirm":"Delete this experience?\nLinked interview records will remain, but the detail link will be removed."
+  },
+  "interviewPractice": {
+    "title": "AI Interview Practice Room",
+    "supporting": "Answer questions directly and analyze both content and delivery.",
+    "categories": {
+      "introduction_and_motivation": { "title": "Introduction and motivation", "description": "Practice communicating your strengths and motivation clearly." },
+      "behavioral_experience": { "title": "Behavioral interview", "description": "Explain real experience through situation, action, and result." },
+      "customer_situation": { "title": "Customer situations", "description": "Respond calmly to passenger needs and conflict." },
+      "safety_and_role_judgment": { "title": "Safety and role judgment", "description": "Prioritize safety and decide when to act and report." }
+    },
+    "categoryTips": {
+      "introduction_and_motivation": "Show your strength, motivation, and connection to the cabin-crew role.",
+      "behavioral_experience": "Make the situation, your action, and the result clear.",
+      "customer_situation": "Show empathy, policy awareness, and a resolution process.",
+      "safety_and_role_judgment": "Show safety priority, reporting, and follow-up action."
+    },
+    "difficulties": { "beginner": "Beginner", "intermediate": "Intermediate", "advanced": "Advanced" },
+    "filters": { "all": "All", "beginner": "Beginner", "intermediate": "Intermediate", "advanced": "Advanced", "unpracticed": "Unpracticed", "retry": "Practice again" },
+    "sorts": { "recommended": "Recommended", "unpracticed": "Unpracticed first", "recent": "Recently practiced", "lowest": "Lowest score first" },
+    "questions": {
+      "im1": { "shortTitle": "Core introduction", "prompt": "Introduce yourself through the strength and experience that best represent you." },
+      "im2": { "shortTitle": "Why cabin crew", "prompt": "Why do you want to become cabin crew?" },
+      "im3": { "shortTitle": "Distinctive strength", "prompt": "What strength distinguishes you from other applicants?" },
+      "im4": { "shortTitle": "Why this airline", "prompt": "Why did you choose this airline?" },
+      "im5": { "shortTitle": "Value you provide", "prompt": "What value would you like to provide as cabin crew?" },
+      "im6": { "shortTitle": "Growth after joining", "prompt": "What kind of cabin crew member would you like to become?" },
+      "be1": { "shortTitle": "Resolve customer discomfort", "prompt": "Tell us about a time you noticed and resolved a customer's discomfort." },
+      "be2": { "shortTitle": "Team disagreement", "prompt": "How did you resolve a disagreement with a team member?" },
+      "be3": { "shortTitle": "Failure and improvement", "prompt": "Tell us about a mistake or failure and how you improved afterward." },
+      "be4": { "shortTitle": "Responsibility under pressure", "prompt": "Tell us about meeting your responsibility under significant pressure." },
+      "be5": { "shortTitle": "Adapt to change", "prompt": "Tell us about adapting quickly to a new environment." },
+      "be6": { "shortTitle": "Create a positive result", "prompt": "Tell us about a positive result created through your actions." },
+      "cs1": { "shortTitle": "Seat change demand", "prompt": "How would you respond to a passenger strongly demanding a seat change?" },
+      "cs2": { "shortTitle": "Passenger dispute", "prompt": "How would you respond to an argument between passengers?" },
+      "cs3": { "shortTitle": "Delay complaint", "prompt": "How would you guide a passenger complaining about a delay?" },
+      "cs4": { "shortTitle": "Passenger refusing rules", "prompt": "How would you explain a rule to a passenger who refuses to follow it?" },
+      "cs5": { "shortTitle": "Language barrier", "prompt": "How would you help a passenger when you do not share a language?" },
+      "cs6": { "shortTitle": "Complaint and compliance", "prompt": "How would you calm a dissatisfied customer while maintaining policy?" },
+      "sj1": { "shortTitle": "Safety versus service", "prompt": "What would you prioritize when safety and service conflict?" },
+      "sj2": { "shortTitle": "Missed safety step", "prompt": "What would you do if a colleague missed part of a safety procedure?" },
+      "sj3": { "shortTitle": "Movement in turbulence", "prompt": "How would you respond if a passenger tried to move during turbulence?" },
+      "sj4": { "shortTitle": "Exit-row instructions", "prompt": "What would you do if an exit-row passenger did not follow instructions?" },
+      "sj5": { "shortTitle": "Medical situation", "prompt": "In what order would you act when a passenger needs medical help?" },
+      "sj6": { "shortTitle": "When to report", "prompt": "When should you report a difficult judgment to a supervisor?" }
+    },
+    "statuses": { "strong": "Strong", "adequate": "Adequate", "needs_improvement": "Needs improvement" },
+    "empty": "No practice history yet.",
+    "error": "Practice data could not be loaded. Please try again."
+  },
+  "ai":{"settings":"AI settings","back":"Back to app","serverKeyNotice":"API keys must be stored only in server environment variables, never in browser code.","providerSettings":"Provider settings","activeAi":"Active AI provider","activeStt":"Active STT provider","fallback":"Use basic analysis on failure","timeout":"Request timeout (ms)","reset":"Restore defaults","providerStatus":"Provider status","available":"Available","unavailable":"Unavailable","todayRequests":"Requests today","monthRequests":"Requests this month","successRate":"Success rate","fallbackRate":"Fallback rate","failureRate":"Failure rate","audioTime":"Audio processed","consent":"Processing consent","consentDescription":"Recordings or transcript text may be sent to the server for analysis.","textConsent":"Allow text processing","audioConsent":"Allow audio processing","airlineConsent":"Allow reviewed airline context","states":{"preparing":"Preparing","sending":"Sending","analyzing":"Analyzing","fallback":"Switching to basic mode","complete":"Complete","retryable":"Retry available","offline":"Offline"},"fallbackNotice":"Results were provided using basic analysis mode.","errors":{"not_configured":"Server analysis is not configured.","consent_required":"Choose your processing consent first.","invalid_request":"Check your input.","timeout":"Analysis timed out. Try again.","network_error":"Check your network connection.","rate_limited":"Try again later.","provider_unavailable":"Analysis is currently unavailable.","invalid_response":"The response could not be validated; switching to basic mode.","audio_too_large":"The recording exceeds the size or duration limit.","audio_format_unsupported":"This audio format is unsupported.","empty_transcript":"Enter an answer first.","quota_exceeded":"Monthly quota reached.","unknown":"An analysis error occurred."},"retry":"Retry","offlineMock":"Basic analysis remains available offline.","transcriptWarning":"Speech recognition may be incomplete. Review the transcript."},
+  "weeklyReport":{"title":"Weekly report","open":"View weekly report","period":"Period","summary":"This week","learningTime":"Learning time","activeDays":"Active days","completedTasks":"Completed tasks","streak":"Learning streak","interviews":"Interview practice","applications":"Application work","experiences":"Experience work","estimated":"Some activity times are estimates.","capabilityChanges":"Six capability trends","mostImproved":"Most improved capability","weaknesses":"Repeated weaknesses","highlights":"Highlights","portfolio":"Experience portfolio","nextPriorities":"Next-week priorities","nextRoutine":"Next-week routine preview","editPlan":"Adjust next-week plan","confirmPlan":"Confirm next-week plan","confirmed":"Plan confirmed.","deleteTask":"Delete task","replaceTask":"Replace task","movePrevious":"Move to previous day","moveNext":"Move to next day","restDay":"Make rest day","focusDay":"Make focus day","priorityHistory":"Priority history","timeline":"Learning activity timeline","insufficient":"There is not enough learning data this week.\nComplete at least two tasks for trends and recommendations.","noComparison":"There is not enough history to compare yet.","initial":"Initial selection","current":"Current","previous":"vs last week","activities":"Related activities","improving":"Improving","stable":"Stable","declining":"Needs attention","insufficient_data":"Insufficient data","totalExperiences":"Total experiences","readyExperiences":"Interview ready","missingCategories":"Missing categories","overused":"Repeated experience use","back":"Back","hours":"hr","minutes":"min","days":"days","times":"times","error":"Learning records could not be loaded. Try again.","capabilities":{"application_readiness":"Application readiness","interview_communication":"Interview communication","recruitment_language":"Recruitment language","customer_situation_handling":"Customer situations","safety_and_role_judgment":"Safety and role judgment","airline_and_role_understanding":"Airline and role understanding"}},
+  "applicationCoach": {
+    "title":"Application Coach","subtitle":"Build application answers from your experience and verified airline context.","newAnswer":"Create new answer","recent":"Recent work","byAirline":"Answers by airline","recommended":"Recommended task","savedAnswers":"Saved answers","airlinesInProgress":"Airlines in progress","lastEdited":"Last edited","corePromptMissing":"Core prompts not started","empty":"No saved answers yet. Start with your real experience.","continue":"Continue","selectAirline":"Select a target airline","generalAnswer":"Write a general answer without an airline","verifiedContext":"Verified airline context","insufficientContext":"There is not enough reviewed airline material.\nA general cabin-crew standard will be used.","limitedEvaluation":"Airline connection analysis is limited because reviewed airline material is insufficient.","selectDocument":"Select an application document type","selectPrompt":"Select a prompt","practicePrompts":"Practice prompts","verifiedPrompts":"Reviewed airline prompts","customPrompt":"Enter a custom prompt","customPromptLabel":"Application prompt","characterLimit":"Character limit","wordLimit":"Word limit","language":"Language","memo":"Notes","source":{"official_application":"Official application","published_airline_question":"Reviewed airline prompt","practice_template":"Practice template","custom_user_input":"Custom input"},"documents":{"application_question":"Application question","personal_statement":"Personal statement","cover_letter":"Cover letter","motivation_statement":"Motivation statement","resume_profile":"Resume profile","video_application_script":"Video application script","short_answer":"Short answer","custom":"Custom"},"selectExperience":"Select relevant experience","experienceHelp":"Select up to two, or continue without experience.","noExperience":"Continue without experience","addExperience":"Add experience","matchReason":"Why it matches","coaching":"Clarify your material","autosaved":"Autosaved","structure":"Build answer structure","coreMessage":"Core message","addBlock":"Add structure item","createDraft":"Confirm structure and create draft","editor":"Edit application answer","evidence":"Sentence evidence","genericEvidence":"General wording not directly confirmed by user experience","polish":"Polish","specific":"Make specific","concise":"Make concise","roleConnection":"Strengthen role link","airlineConnection":"Strengthen airline link","myTone":"Use my tone","versions":"Previous versions","analyze":"Analyze and save","analysisTitle":"Application answer analysis","overall":"Overall completeness","best":"Strongest point","firstFix":"First improvement","saveVersion":"Save new version","restore":"Restore this version","compare":"Compare versions","before":"Before","after":"After","applyChange":"Apply change","cancel":"Cancel","otherAirline":"Create another airline version","speakingPractice":"Practice speaking with this answer","usedExperiences":"Experiences used in this answer","back":"Back","next":"Next","delete":"Delete","moveUp":"Move up","moveDown":"Move down","status":{"draft":"Draft","structured":"Structured","reviewed":"Reviewed","ready":"Ready"},"savingError":"Could not save the answer. Try again."},
+  "profileImage":{"title":"Profile photo","optional":"Optional","description":"Shown only on your account screen; it is not used for interview evaluation or recommendations.","choose":"Choose photo","useGoogle":"Use Google photo","continueWithout":"Continue without a photo","change":"Change photo","delete":"Delete photo","chooseAgain":"Choose again","apply":"Apply","cancel":"Cancel","uploading":"Uploading…","unsupportedType":"This image format is not supported.","tooLarge":"Images must be 5MB or smaller.","processingFailed":"The image could not be processed.","saveFailed":"The photo could not be saved. Your current photo was kept.","deleteFailed":"The photo could not be deleted.","preview":"Square preview","initialsAlt":"Profile initials","imageAlt":"Profile photo","googleAlt":"Google profile photo"},
+  "profileSetup":{"title":"Register your basic information","description":"This information is required to manage your learning records safely and continue across devices.","requiredInfo":"Required information","optionalInfo":"Optional information","email":"Email","emailReadonly":"This is your Google account email and cannot be edited here.","fullName":"Name","phone":"Contact number","phoneHelp":"Enter a number where you can currently be reached.","birthDate":"Date of birth","ageExclusion":"Age is not used for recommendations or learning analysis.","kakaoId":"Kakao ID","optional":"Optional","kakaoHelp":"This may be used as a support or notification channel and can be left blank.","requiredConsent":"Required consent","optionalConsent":"Optional consent","terms":"Terms of service","privacy":"Collection and use of personal information","marketing":"Marketing communications","sms":"SMS notifications","kakaoContact":"Kakao contact-channel consent","details":"View details","allAgree":"Agree to all items","reviewTitle":"Review your information","complete":"Complete profile registration","saving":"Saving…","edit":"Edit profile","validationError":"Review the information you entered.","nameInvalid":"Enter at least two characters for your name.","phoneInvalid":"Enter a reachable number, including a country code when applicable.","birthDateInvalid":"Enter a valid date of birth.","termsRequired":"Agreement to the terms of service is required.","privacyRequired":"Consent to the collection and use of personal information is required.","under14Title":"Notice for users under 14","under14Description":"Users under 14 require legal guardian consent.","under14Pending":"Guardian consent is not yet available. Your profile has not been marked complete.","support":"Contact support","logout":"Sign out","termsSummary":"Required terms for service delivery, account management, and learning-record synchronization.","privacySummary":"Name, contact number, and date of birth are processed for account management and age verification.","optionalSummary":"Optional consent can be withdrawn at any time and does not limit core features.","saved":"Your profile has been saved.","loadError":"Profile information could not be loaded.","saveError":"The profile could not be saved. Please try again."},
+  "account": {"login":"Sign in","signUp":"Create account","forgotPassword":"Forgot password","resetPassword":"Reset password","emailVerification":"Email verification","logout":"Sign out","localOnly":"Saving on this device only","synced":"Safely saved to your account","syncing":"Syncing","pending":"Will sync when connected","offline":"Offline","mergeLocal":"Merge local data","conflicts":"Review sync conflicts","cloudAudio":"Cloud audio storage","dataManagement":"Data management","export":"Export","import":"Import","deleteAccount":"Delete account","notConfigured":"Cloud storage is not configured yet.","restoring":"Loading your account records.","error":"The request could not be completed.","oauth":{"continueWithGoogle":"Continue with Google","redirecting":"Redirecting to Google…","or":"or","failed":"Google sign-in could not be completed. Please try again.","cancelled":"Google sign-in was cancelled.","sessionFailed":"A sign-in session could not be created."},"experienceSync":{"connect":"Connect experiences","sync":"Sync experiences","conflict":"Experience conflict","compare":"Compare local and server","fieldMerge":"Merge by field","success":"Sync completed","failed":"Sync failed","offlinePending":"Waiting offline","restored":"Restored from another device","diagnostic":"Connection diagnostic","rlsGuide":"RLS test guide","reauth":"Sign in again."}},
+  "airlineSelection": {
+    "supporting": "Search by airline name, country, or region.",
+    "searchPlaceholder": "Search airline, country, or region",
+    "primaryLabel": "Primary",
+    "interestLabel": "Interested",
+    "unselected": "Not selected",
+    "undecided": "I have not chosen a target airline yet",
+    "customInput": "Enter manually",
+    "customPlaceholder": "Enter an airline name",
+    "noResults": "No results found. Enter an airline below.",
+    "groups": { "full_service": "Full-service airlines", "low_cost_or_hybrid": "Low-cost and hybrid airlines", "regional": "Regional and special-operations airlines" },
+    "businessModels": { "full_service": "Full-service airline", "low_cost": "Low-cost airline", "hybrid": "Hybrid airline", "regional": "Regional airline" },
+    "regions": { "asia_pacific": "Asia Pacific", "middle_east": "Middle East", "europe": "Europe", "north_america": "North America", "latin_america": "Latin America", "africa": "Africa", "other": "Other" },
+    "countries": { "KR": "South Korea", "SG": "Singapore", "HK": "Hong Kong", "JP": "Japan", "AU": "Australia", "NZ": "New Zealand", "MY": "Malaysia", "PH": "Philippines", "VN": "Vietnam", "TW": "Taiwan", "TH": "Thailand", "ID": "Indonesia", "IN": "India", "AE": "United Arab Emirates", "QA": "Qatar", "SA": "Saudi Arabia", "DE": "Germany", "FR": "France", "NL": "Netherlands", "GB": "United Kingdom", "TR": "Türkiye", "IE": "Ireland", "HU": "Hungary", "ES": "Spain", "CH": "Switzerland", "FI": "Finland", "US": "United States", "CA": "Canada", "CL": "Chile", "CO": "Colombia", "PA": "Panama", "MX": "Mexico", "ET": "Ethiopia", "KE": "Kenya", "ZA": "South Africa", "RW": "Rwanda" }
+  },
+  "airlineDataPack": {
+    "officialCareers": "Official careers page",
+    "verificationNotice": "Recheck the live vacancy and eligibility on the official page before applying.",
+    "currentStatus": { "unknown": "Check required", "recruiting": "Recruiting", "not_recruiting": "No active recruitment", "rolling": "Rolling recruitment", "seasonal": "Seasonal recruitment" },
+    "reviewStatus": { "draft": "Draft", "in_review": "In review", "reviewed": "Reviewed", "verified": "Verified", "archived": "Archived" },
+    "sourceStatus": { "unverified": "Unverified", "reviewing": "Reviewing", "verified": "Verified", "outdated": "Update required", "broken_link": "Broken link", "rejected": "Rejected" },
+    "recruitmentStages": { "application": "Application", "document_screening": "Document screening", "online_assessment": "Online assessment", "video_interview": "Video interview", "phone_interview": "Phone interview", "group_assessment": "Group assessment", "assessment_day": "Assessment day", "language_assessment": "Recruitment-language assessment", "individual_interview": "Individual interview", "medical_check": "Medical check", "background_check": "Background check", "final_offer": "Final offer", "other": "Other" }
+  }
+}

@@ -1,0 +1,2 @@
+import { NextResponse } from 'next/server'
+export async function notConfiguredAiRoute(request:Request){let requestId='unknown';try{const body=await request.json();requestId=body?.context?.requestId??'unknown'}catch{}return NextResponse.json({ok:false,requestId,providerId:'server',error:{code:'not_configured',message:'Server AI provider is not configured.',retryable:false},fallbackAvailable:true},{status:503})}

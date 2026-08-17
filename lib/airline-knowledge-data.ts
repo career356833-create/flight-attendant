@@ -1,0 +1,147 @@
+import { airlines, type AirlineBusinessModel } from './airline-data'
+import type { AirlineKnowledgeProfile, AirlineResource, RecruitmentStage } from './airline-knowledge-repository'
+
+const checkedAt = '2026-07-22T00:00:00.000Z'
+
+export const officialCareerUrls: Record<string, string> = {
+  korean_air: 'https://recruit.koreanair.com/',
+  asiana_airlines: 'https://recruit.flyasiana.com/',
+  singapore_airlines: 'https://careers.singaporeair.com/sia/go/Cabin-Crew/689244/',
+  cathay_pacific: 'https://careers.cathaypacific.com/en/careers/our-teams/flight-attendant',
+  ana: 'https://www.ana.co.jp/group/recruit/',
+  japan_airlines: 'https://www.job-jal.com/',
+  qantas: 'https://careers.qantas.com/',
+  air_new_zealand: 'https://careers.airnewzealand.co.nz/',
+  airasia: 'https://careers.airasia.com/',
+  jetstar: 'https://careers.jetstar.com/',
+  cebu_pacific: 'https://careers.cebupacificair.com/',
+  vietjet_air: 'https://careers.vietjetair.com/',
+  scoot: 'https://careers.flyscoot.com/',
+  peach_aviation: 'https://recruit.flypeach.com/',
+  jeju_air: 'https://recruit.jejuair.net/',
+  tway_air: 'https://recruit.twayair.com/',
+  jin_air: 'https://recruit.jinair.com/',
+  air_busan: 'https://recruit.airbusan.com/',
+  air_seoul: 'https://recruit.flyairseoul.com/',
+  emirates: 'https://www.emiratesgroupcareers.com/cabin-crew/',
+  qatar_airways: 'https://careers.qatarairways.com/global/en/cabin-crew-cabin-services',
+  etihad_airways: 'https://careers.etihad.com/content/Cabin-Crew-at-Etihad/',
+  saudia: 'https://careers.saudia.com/',
+  flydubai: 'https://careers.flydubai.com/cabin-crew',
+  air_arabia: 'https://careers.airarabia.com/',
+  lufthansa: 'https://apply.lufthansagroup.careers/index.php?ac=search_result&search_criterion_channel%5B%5D=12',
+  air_france: 'https://recrutement.airfrance.com/',
+  klm: 'https://careers.klm.com/en/jobs/cabin-attendant',
+  british_airways: 'https://careers.ba.com/cabin-crew',
+  turkish_airlines: 'https://careers.turkishairlines.com/en-US/',
+  iberia: 'https://grupo.iberia.com/careers/',
+  virgin_atlantic: 'https://careers.virginatlantic.com/customer-services/cabin-crew',
+  ryanair: 'https://careers.ryanair.com/cabin-crew/',
+  easyjet: 'https://careers.easyjet.com/en/career-areas/cabin-crew',
+  wizz_air: 'https://careers.wizzair.com/go/Cabin-Crew-Jobs/5258601/',
+  delta_air_lines: 'https://www.delta.com/us/en/careers/flight-attendant-careers',
+  united_airlines: 'https://careers.united.com/us/en/flight-attendant',
+  american_airlines: 'https://jobs.aa.com/go/Flight-Attendants/2537300/',
+  southwest_airlines: 'https://careers.southwestair.com/flight-attendants',
+  air_canada: 'https://careers.aircanada.com/',
+  jetblue: 'https://careers.jetblue.com/go/Inflight/8044800/',
+  alaska_airlines: 'https://careers.alaskaair.com/career-opportunities/flight-attendants/',
+  latam_airlines: 'https://career5.successfactors.eu/career?company=lan',
+  avianca: 'https://jobs.avianca.com/',
+  copa_airlines: 'https://career8.successfactors.com/career?company=copaairlin',
+  aeromexico: 'https://career5.successfactors.eu/career?company=aeromexico',
+  ethiopian_airlines: 'https://corporate.ethiopianairlines.com/AboutEthiopian/careers',
+  kenya_airways: 'https://careers.kenya-airways.com/',
+  south_african_airways: 'https://www.flysaa.com/about-us/leading-carrier/careers',
+  rwandair: 'https://www.rwandair.com/about-us/careers/',
+  china_airlines: 'https://www.china-airlines.com/tw/en/career',
+  eva_air: 'https://careers.evaair.com/',
+  thai_airways: 'https://career.thaiairways.com/',
+  malaysia_airlines: 'https://careers.malaysiaairlines.com/',
+  garuda_indonesia: 'https://career.garuda-indonesia.com/',
+  philippine_airlines: 'https://careers.philippineairlines.com/',
+  indigo: 'https://careers.goindigo.in/go/Inflight-Services/377660/',
+  air_india: 'https://careers.airindia.com/go/Cabin-Crew/726244/',
+  swiss: 'https://www.swiss.com/corporate/en/careers/professional-fields/cabin-crew',
+  finnair: 'https://company.finnair.com/en/careers',
+}
+
+const stagesByModel: Record<AirlineBusinessModel, RecruitmentStage[]> = {
+  full_service: ['application', 'document_screening', 'online_assessment', 'video_interview', 'assessment_day', 'language_assessment', 'individual_interview', 'medical_check', 'background_check', 'final_offer'],
+  hybrid: ['application', 'document_screening', 'online_assessment', 'video_interview', 'group_assessment', 'individual_interview', 'medical_check', 'final_offer'],
+  low_cost: ['application', 'document_screening', 'video_interview', 'assessment_day', 'individual_interview', 'medical_check', 'final_offer'],
+  regional: ['application', 'document_screening', 'language_assessment', 'individual_interview', 'medical_check', 'final_offer'],
+}
+
+const environmentByModel: Record<AirlineBusinessModel, string[]> = {
+  full_service: ['full_service', 'long_haul_or_network', 'brand_standard', 'multicultural_service'],
+  hybrid: ['hybrid_service', 'network_flexibility', 'commercial_awareness', 'multicultural_service'],
+  low_cost: ['efficient_turnaround', 'short_haul', 'commercial_awareness', 'flexible_operations'],
+  regional: ['regional_network', 'short_haul', 'frequent_service_cycles', 'flexible_operations'],
+}
+
+export const airlineKnowledgeResources: AirlineResource[] = airlines.map((item) => ({
+  id: `${item.id}-official-careers`,
+  airlineId: item.id,
+  resourceType: 'career_page',
+  title: `${item.name} official careers`,
+  url: officialCareerUrls[item.id],
+  language: item.recruitmentLanguages.includes('English') ? 'en' : item.recruitmentLanguages[0] ?? 'en',
+  publisher: item.name,
+  checkedAt,
+  summary: `Official ${item.name} recruitment or careers entry point. Vacancy status and role-specific eligibility must be rechecked before use.`,
+  extractedFacts: [
+    { id: `${item.id}-fact-model`, label: 'Business model', value: item.businessModel, confidence: 'high' },
+    { id: `${item.id}-fact-languages`, label: 'Recruitment languages to verify', value: item.recruitmentLanguages.join(', '), confidence: 'medium' },
+  ],
+  sourceGrade: 'A',
+  verificationStatus: 'reviewing',
+  validity: 'unknown',
+  notes: 'Official-domain seed record. A reviewer must confirm the page resolves and verify each live vacancy separately.',
+  createdAt: checkedAt,
+  updatedAt: checkedAt,
+}))
+
+export const airlineKnowledgeProfiles: AirlineKnowledgeProfile[] = airlines.map((item) => {
+  const resourceId = `${item.id}-official-careers`
+  return {
+    id: `profile-${item.id}`,
+    airlineId: item.id,
+    overview: {
+      officialName: item.name,
+      displayName: item.name,
+      countryCode: item.countryCode,
+      region: item.region,
+      businessModel: item.businessModel,
+      brandSummary: `${item.name} cabin-crew preparation profile. Use the linked official careers page for current role details.`,
+      cabinCrewRoleSummary: 'Prepare for safety-first judgment, customer service, teamwork, communication and operational reliability.',
+      operatingEnvironmentTags: environmentByModel[item.businessModel],
+    },
+    recruitmentProfile: {
+      recruitmentLanguages: item.recruitmentLanguages,
+      applicationLanguages: item.recruitmentLanguages,
+      commonRecruitmentStages: stagesByModel[item.businessModel],
+      languageRequirementSummary: 'Language requirements vary by base and vacancy. Confirm the live official posting.',
+      documentRequirementSummary: 'Prepare identity, work-history, education and role-specific documents requested by the live posting.',
+      visaOrResidencySummary: 'Work authorization and base eligibility vary by vacancy and must be checked on the official posting.',
+      officialCareerPageUrl: officialCareerUrls[item.id],
+      currentStatus: 'unknown',
+      checkedAt,
+    },
+    resourceIds: [resourceId],
+    questionIds: [],
+    supportedLocales: ['ko', 'en'],
+    reviewStatus: 'in_review',
+    completeness: { overview: 67, recruitment: 67, resources: 25, questions: 0, faq: 0, sources: 0, freshness: 0, overall: 40 },
+    createdAt: checkedAt,
+    updatedAt: checkedAt,
+  }
+})
+
+export const airlineDataPackStats = {
+  airlineCount: airlines.length,
+  profileCount: airlineKnowledgeProfiles.length,
+  resourceCount: airlineKnowledgeResources.length,
+  officialUrlCount: Object.keys(officialCareerUrls).length,
+  checkedAt,
+}
