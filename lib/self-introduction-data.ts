@@ -1,4 +1,8 @@
 import { getAirlineAIContext } from "@/lib/airline-knowledge-repository";
+import type { SelfIntroductionChallengeAnalysis, SelfIntroductionChallengeSeconds, SelfIntroductionChallengeType } from "@/lib/self-introduction-challenge";
+import type { InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
+import type { InterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
+import type { PronunciationAnalysisResult } from "@/lib/ai/pronunciation-provider";
 
 export type TimingAssessment =
   | "too_brief_for_content"
@@ -33,6 +37,7 @@ export type SelfIntroductionAnalysis = {
   airlineValueAlignment?: string;
   experienceConnection?: string;
   missingCompetencySuggestion?: string[];
+  challenge?: SelfIntroductionChallengeAnalysis;
 };
 
 export type SelfIntroductionAirlineContext = {
@@ -71,6 +76,11 @@ export type SelfIntroductionAttempt = {
   experienceId?: string;
   experienceSnapshot?: { title: string; shortSummary: string };
   completed: boolean;
+  challengeType?: SelfIntroductionChallengeType;
+  targetSeconds?: SelfIntroductionChallengeSeconds;
+  audioMetrics?: InterviewAudioMetrics;
+  speechMetrics?: InterviewSpeechMetrics;
+  pronunciationAnalysis?: PronunciationAnalysisResult;
 };
 
 export type SelfIntroductionProgress = {

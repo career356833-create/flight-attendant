@@ -19,6 +19,7 @@ import {
   type SelfIntroductionAnalysis,
   type SelfIntroductionAttempt,
 } from "@/lib/self-introduction-data";
+import { compareSelfIntroductionRetake, getSelfIntroductionChallengeGuide, SELF_INTRO_CHALLENGE_OPTIONS, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
 
 const primary =
   "h-14 w-full rounded-2xl bg-navy px-5 font-semibold text-ivory transition active:scale-[.98] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
@@ -85,11 +86,15 @@ export function SelfIntroductionIntro({
   onLater,
   airlineSection,
   experienceSection,
+  challengeTarget,
+  onChallengeTarget,
 }: {
   onStart: () => void;
   onLater: () => void;
   airlineSection?: React.ReactNode;
   experienceSection?: React.ReactNode;
+  challengeTarget?: SelfIntroductionChallengeSeconds;
+  onChallengeTarget: (seconds?: SelfIntroductionChallengeSeconds) => void;
 }) {
   const items = [
     "핵심 메시지",
@@ -123,9 +128,20 @@ export function SelfIntroductionIntro({
           평소 면접에서 답하듯{`\n`}자연스럽게 자기소개해 주세요.
         </p>
         <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-ivory/70">
-          정해진 제한시간은 없어요.{`\n`}답변 내용과 실제 소요시간을 함께
-          분석합니다.
+          {challengeTarget ? `${challengeTarget}초를 목표로 답변 내용과 실제 소요시간을 함께 분석합니다.` : <>정해진 제한시간은 없어요.{`\n`}답변 내용과 실제 소요시간을 함께 분석합니다.</>}
         </p>
+      </section>
+      <section className="mt-5 rounded-2xl border border-border bg-card p-4">
+        <span className="eyebrow text-gold">SELF INTRODUCTION CHALLENGE</span>
+        <h2 className="mt-2 text-base font-bold text-navy">자기소개 챌린지</h2>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">실제 면접처럼 시간 안에 자신을 소개해보세요.</p>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {SELF_INTRO_CHALLENGE_OPTIONS.map(seconds => (
+            <button key={seconds} type="button" aria-pressed={challengeTarget === seconds} onClick={() => onChallengeTarget(challengeTarget === seconds ? undefined : seconds)} className={`h-11 rounded-xl border text-sm font-bold ${challengeTarget === seconds ? 'border-navy bg-navy text-ivory' : 'border-border bg-background text-navy'}`}>
+              {seconds}초
+            </button>
+          ))}
+        </div>
       </section>
       {airlineSection}
       {experienceSection}
@@ -144,7 +160,7 @@ export function SelfIntroductionIntro({
         </div>
       </section>
       <p className="mt-6 rounded-2xl bg-secondary/60 p-4 text-xs leading-relaxed text-midnight">
-        녹음은 사용자가 완료 버튼을 누를 때까지 계속됩니다.
+        {challengeTarget ? '목표 시간을 지나도 실패 처리되지 않으며, 사용자가 완료 버튼을 누를 때까지 녹음됩니다.' : '녹음은 사용자가 완료 버튼을 누를 때까지 계속됩니다.'}
       </p>
     </DiagnosisFrame>
   );
@@ -253,6 +269,7 @@ export function FreeResponseRecorder({
   onPause,
   onRestart,
   onBack,
+  targetSeconds,
 }: {
   elapsed: number;
   paused: boolean;
@@ -263,6 +280,7 @@ export function FreeResponseRecorder({
   onPause: () => void;
   onRestart: () => void;
   onBack: () => void;
+  targetSeconds?: SelfIntroductionChallengeSeconds;
 }) {
   return (
     <DiagnosisFrame
@@ -285,7 +303,7 @@ export function FreeResponseRecorder({
           className="mt-5 font-mono text-3xl font-semibold tracking-wider text-navy"
           aria-label={`경과 시간 ${formatDurationWords(elapsed)}`}
         >
-          {formatElapsed(elapsed)}
+          {formatElapsed(elapsed)}{targetSeconds ? ` / ${formatElapsed(targetSeconds)}` : ''}
         </p>
       </div>
       <div className={`${card} mt-7`}>
@@ -316,6 +334,10 @@ export function FreeResponseRecorder({
           답변이 길어지고 있어요. 핵심 메시지를 중심으로 마무리해 보세요.
         </p>
       )}
+      {targetSeconds && elapsed >= targetSeconds && (
+        <p className="mt-4 rounded-xl bg-gold/10 px-3 py-2 text-center text-xs font-semibold text-navy">목표 시간에 도달했어요. 답변은 실패 처리되지 않으며 준비되면 완료해 주세요.</p>
+      )}
+      {targetSeconds && <div className="mt-4 flex flex-wrap justify-center gap-2">{getSelfIntroductionChallengeGuide(targetSeconds).map(item=><span key={item} className="rounded-full bg-secondary px-3 py-1.5 text-[11px] text-midnight">{item}</span>)}</div>}
       <div className="mt-7 grid grid-cols-2 gap-3">
         <button className={secondary} onClick={onPause}>
           {paused ? (
@@ -590,6 +612,7 @@ export function AttemptHistory({
               <p className="mt-1 text-xs text-muted-foreground">
                 {new Date(a.createdAt).toLocaleString("ko-KR")}
               </p>
+              {a.targetSeconds && <p className="mt-1 text-xs text-gold">목표 {a.targetSeconds}초</p>}
             </div>
             <span className="text-sm font-semibold text-teal">
               {formatDurationWords(a.durationSeconds)}
@@ -613,6 +636,8 @@ export function SelfIntroductionResult({
   onRetry: (mode: string) => void;
 }) {
   const a = attempt.analysis;
+  const previous = attempt.previousAttemptId ? history.find(item => item.id === attempt.previousAttemptId) : undefined;
+  const comparison = previous && attempt.challengeType ? compareSelfIntroductionRetake(previous, attempt) : undefined;
   return (
     <DiagnosisFrame
       title="자기소개 진단 결과"
@@ -649,6 +674,13 @@ export function SelfIntroductionResult({
       <div className="mt-5">
         <TimingAnalysisCard analysis={a} />
       </div>
+      {a.challenge && <section className="mt-5 rounded-2xl border border-border bg-card p-5">
+        <span className="eyebrow text-gold">CHALLENGE</span>
+        <h2 className="mt-2 text-base font-bold text-navy">목표 {a.challenge.timing.targetSeconds}초 · 실제 {a.challenge.timing.actualSeconds}초</h2>
+        <p className="mt-3 text-sm leading-relaxed text-midnight">{a.challenge.summary}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">{Object.entries(a.challenge.structure).map(([key, value]) => <div key={key} className="rounded-xl bg-secondary/60 p-3"><span className="text-muted-foreground">{{opening:'소개',strength:'강점',experience:'경험',motivation:'지원 연결'}[key as keyof typeof a.challenge.structure]}</span><strong className="mt-1 block text-navy">{{strong:'충분',present:'포함',missing:'보완 추천'}[value]}</strong></div>)}</div>
+      </section>}
+      {comparison && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">재도전 비교</h2><dl className="mt-3 grid grid-cols-2 gap-2">{Object.entries(comparison).map(([key,value])=><div key={key} className="rounded-xl bg-secondary/60 p-3"><dt className="text-[11px] text-muted-foreground">{{timing:'시간',filler:'추임새',pause:'긴 침묵',structure:'구조'}[key as keyof typeof comparison]}</dt><dd className="mt-1 text-xs font-bold text-navy">{value}</dd></div>)}</dl></section>}
       <div className="mt-7 space-y-3">
         <h2 className="text-base font-bold text-navy">상세 분석</h2>
         {a.details.map((item) => (
@@ -663,6 +695,7 @@ export function SelfIntroductionResult({
       <div className="mt-7">
         <SpeakingMetrics analysis={a} />
       </div>
+      {(attempt.audioMetrics || attempt.speechMetrics) && <section className="mt-7 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">말하기 분석</h2><p className="mt-1 text-xs text-muted-foreground">녹음 입력과 음성 인식 기반 참고 지표</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm text-midnight"><p>평균 음량 <strong>{attempt.audioMetrics?.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics?.pauses.longCount ?? 0}회</strong></p><p>필러 <strong>{attempt.speechMetrics?.fillers.totalCount ?? a.metrics.fillerCount}회</strong></p><p>발화 속도 <strong>{attempt.speechMetrics?.speechRate.estimatedWpm == null ? '측정 불가' : `${attempt.speechMetrics.speechRate.estimatedWpm} WPM`}</strong></p></div>{attempt.pronunciationAnalysis?.status === 'success' && <p className="mt-3 text-xs text-teal">정밀 발음 분석 결과가 연결되었습니다.</p>}</section>}
       <div className="mt-7">
         <ImprovementGuide analysis={a} />
       </div>

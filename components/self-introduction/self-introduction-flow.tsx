@@ -25,6 +25,9 @@ import { experienceRepository } from "@/lib/experience-repository";
 import { interviewQuestionById } from "@/lib/interview-practice-data";
 import { aiService } from "@/lib/ai/ai-service";
 import { airlines, airlineById } from "@/lib/airline-data";
+import { analyzeSelfIntroductionChallenge, challengeTypeFor, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
+import { createInterviewAudioMonitor, type InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
+import { buildInterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -39,10 +42,12 @@ export function SelfIntroductionFlow({
   targetAirlineId,
   onExit,
   onComplete,
+  initialChallengeTarget,
 }: {
   targetAirlineId?: string;
   onExit: () => void;
   onComplete: (attempt: SelfIntroductionAttempt) => void;
+  initialChallengeTarget?: SelfIntroductionChallengeSeconds;
 }) {
   const [step, setStep] = useState<SelfIntroductionStep>("intro");
   const [micStatus, setMicStatus] = useState<
@@ -57,8 +62,11 @@ export function SelfIntroductionFlow({
   const [transcript, setTranscript] = useState(mockTranscript);
   const [attempt, setAttempt] = useState<SelfIntroductionAttempt | null>(null);
   const [previousAttemptId, setPreviousAttemptId] = useState<string>();
+  const [challengeTarget, setChallengeTarget] = useState<SelfIntroductionChallengeSeconds | undefined>(initialChallengeTarget);
   const chunks = useRef<Blob[]>([]);
   const aiRequest = useRef<AbortController | null>(null);
+  const audioMonitor = useRef<ReturnType<typeof createInterviewAudioMonitor> | null>(null);
+  const completedAudioMetrics = useRef<InterviewAudioMetrics | undefined>(undefined);
   const [selectedExperienceId, setSelectedExperienceId] = useState<string>();
   const [selectedAirlineId, setSelectedAirlineId] = useState<
     string | undefined
@@ -71,6 +79,7 @@ export function SelfIntroductionFlow({
   useEffect(
     () => () => {
       aiRequest.current?.abort();
+      audioMonitor.current?.finish();
       stream?.getTracks().forEach((track) => track.stop());
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     },
@@ -121,8 +130,10 @@ export function SelfIntroductionFlow({
     setBlob(null);
     setAudioUrl(undefined);
     chunks.current = [];
+    completedAudioMetrics.current = undefined;
     if (!forceMock && stream && typeof MediaRecorder !== "undefined") {
       try {
+        audioMonitor.current = createInterviewAudioMonitor(stream);
         const next = new MediaRecorder(stream);
         next.ondataavailable = (event) => {
           if (event.data.size) chunks.current.push(event.data);
@@ -145,6 +156,8 @@ export function SelfIntroductionFlow({
 
   function finishRecording() {
     if (recorder && recorder.state !== "inactive") recorder.stop();
+    completedAudioMetrics.current = audioMonitor.current?.finish();
+    audioMonitor.current = null;
     setRecorder(null);
     setElapsed((value) => Math.max(1, value));
     setStep("review");
@@ -158,11 +171,15 @@ export function SelfIntroductionFlow({
   }
   function restartRecording() {
     if (recorder && recorder.state !== "inactive") recorder.stop();
+    audioMonitor.current?.finish();
+    audioMonitor.current = null;
     beginRecording(micStatus !== "ready");
   }
   function leaveRecording() {
     if (window.confirm("녹음을 종료하고 이전 화면으로 이동할까요?")) {
       if (recorder && recorder.state !== "inactive") recorder.stop();
+      audioMonitor.current?.finish();
+      audioMonitor.current = null;
       setStep("microphone_check");
     }
   }
@@ -188,6 +205,21 @@ export function SelfIntroductionFlow({
     );
     const reviewedTranscript =
       stt.ok && stt.data.transcript ? stt.data.transcript : transcript;
+    const audioMetrics = completedAudioMetrics.current ? {
+      ...completedAudioMetrics.current,
+      speech: {
+        ...completedAudioMetrics.current.speech,
+        wordsPerMinute: reviewedTranscript.trim()
+          ? Math.round(reviewedTranscript.trim().split(/\s+/).length / (Math.max(1, completedAudioMetrics.current.durationMs) / 60000))
+          : null,
+      },
+    } : undefined;
+    const speechMetrics = buildInterviewSpeechMetrics({
+      transcript: reviewedTranscript,
+      transcription: stt.ok ? stt.data : undefined,
+      audioMetrics,
+      providerId: stt.providerId as "mock" | "browser_speech" | "server",
+    });
     const response = await aiService.analyzeSelfIntroduction(
       { transcript: reviewedTranscript, durationSeconds: duration },
       { signal: controller.signal },
@@ -209,10 +241,16 @@ export function SelfIntroductionFlow({
       durationSeconds: duration,
       analysis: {
         ...response.data,
+        metrics: {
+          ...response.data.metrics,
+          fillerCount: speechMetrics.fillers.totalCount,
+          longSilenceCount: audioMetrics?.pauses.longCount ?? response.data.metrics.longSilenceCount,
+        },
         airlineValueAlignment: airlineAnalysis.airlineValueAlignment,
         experienceConnection: airlineAnalysis.experienceConnection,
         missingCompetencySuggestion:
           airlineAnalysis.missingCompetencySuggestion,
+        challenge: challengeTarget ? analyzeSelfIntroductionChallenge(challengeTarget, duration, reviewedTranscript) : undefined,
       },
       targetAirlineId: selectedAirlineId,
       experienceId: selectedExperience?.id,
@@ -225,6 +263,10 @@ export function SelfIntroductionFlow({
       attemptNumber: attempts.length + 1,
       previousAttemptId,
       completed: true,
+      challengeType: challengeTarget ? challengeTypeFor(challengeTarget) : undefined,
+      targetSeconds: challengeTarget,
+      audioMetrics,
+      speechMetrics,
     };
     saveSelfIntroductionAttempt(next);
     if (blob) await saveAttemptAudio(next.id, blob);
@@ -241,11 +283,14 @@ export function SelfIntroductionFlow({
     selectedExperience,
     selectedAirlineId,
     transcript,
+    challengeTarget,
   ]);
 
-  function retry() {
+  function retry(mode?: string) {
     aiRequest.current?.abort();
     if (attempt) setPreviousAttemptId(attempt.id);
+    const selectedSeconds = mode?.match(/^(30|60|90)초/)?.[1];
+    if (selectedSeconds) setChallengeTarget(Number(selectedSeconds) as SelfIntroductionChallengeSeconds);
     setStep("retry");
     setTranscript(mockTranscript);
     setElapsed(0);
@@ -257,6 +302,8 @@ export function SelfIntroductionFlow({
   if (step === "intro")
     return (
       <SelfIntroductionIntro
+        challengeTarget={challengeTarget}
+        onChallengeTarget={setChallengeTarget}
         airlineSection={
           <div className="mt-5">
             <label
@@ -330,6 +377,7 @@ export function SelfIntroductionFlow({
         onPause={togglePause}
         onRestart={restartRecording}
         onBack={leaveRecording}
+        targetSeconds={challengeTarget}
       />
     );
   if (step === "review")
