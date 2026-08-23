@@ -16,7 +16,7 @@ import { SelfIntroductionFlow } from '@/components/self-introduction'
 import { loadSelfIntroductionProgress, SELF_INTRO_TASK_ID, type SelfIntroductionAttempt, type SelfIntroductionProgress } from '@/lib/self-introduction-data'
 import { InterviewPracticeEngine, InterviewPracticeHome, AirlineInterviewQuestionList } from '@/components/interview-practice'
 import { MockInterviewFollowUp, MockInterviewLauncher, MockInterviewProgress, MockInterviewReport, MockInterviewSessionHistory } from '@/components/interview-practice/mock-interview-session'
-import { analyzeInterviewSession, completeInterviewSessionAttempt, followUpForAttempt, saveInterviewSession, type InterviewSession } from '@/lib/mock-interview-session'
+import { analyzeInterviewSession, completeInterviewSessionAttempt, createInterviewSession, followUpForAttempt, loadInterviewSessions, saveInterviewSession, type InterviewSession } from '@/lib/mock-interview-session'
 import { buildFollowUpQuestion, decideAiInterviewerFollowUp } from '@/lib/ai-interviewer'
 import { interviewQuestionById, loadInterviewAttempts, loadInterviewCapabilityGains, saveInterviewAttempt, type InterviewAttempt, type InterviewCategory, type InterviewPracticeConfig, type InterviewQuestion } from '@/lib/interview-practice-data'
 import { ExperienceLibrary } from '@/components/experience-library'
@@ -28,7 +28,8 @@ import { getCurrentReadinessSnapshot, getWeeklyLearningSummary, generateNextWeek
 import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository'
 import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'
-import { getAirlineAIContext } from '@/lib/airline-knowledge-repository'
+import { airlineKnowledgeRepository, getAirlineAIContext } from '@/lib/airline-knowledge-repository'
+import { buildHomeDrillPlan, buildHomeInterviewRecommendation, buildRecentInterviewGrowth, buildWeeklyInterviewActivity, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
 
 export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, onLogin, initialAccountOpen=false }: { diagnosis?: DiagnosisResult | null; onboardingAnswers?: OnboardingAnswers; onEditDiagnosis?: () => void; onLogin:()=>void; initialAccountOpen?:boolean }) {
   const [activeNav, setActiveNav] = useState(initialAccountOpen?'my':'home')
@@ -41,9 +42,12 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const [pendingSessionAttempt,setPendingSessionAttempt]=useState<InterviewAttempt|null>(null)
   const [pendingFollowUp,setPendingFollowUp]=useState<{attempt:InterviewAttempt;message:string;adaptive?:boolean;question?:InterviewQuestion;reason?:string;templateId?:string}|null>(null)
   const [interviewAttempts,setInterviewAttempts]=useState<InterviewAttempt[]>([])
+  const [interviewSessions,setInterviewSessions]=useState<InterviewSession[]>([])
+  const [sessionHistoryReady,setSessionHistoryReady]=useState(false)
+  const [sessionHistoryAvailable,setSessionHistoryAvailable]=useState(true)
   const [capabilityGains,setCapabilityGains]=useState<Record<string,number>>({})
   const [trainingProgress,setTrainingProgress]=useState<SelfIntroductionProgress>({routineCompleted:false,interviewScoreGain:0,scoreHistory:[]})
-  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());setInterviewAttempts(loadInterviewAttempts());setCapabilityGains({...loadInterviewCapabilityGains(),...getApplicationCapabilityGains()})},[])
+  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());setCapabilityGains({...loadInterviewCapabilityGains(),...getApplicationCapabilityGains()});const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true)},[])
   const baseTasks: RoutineTask[] = diagnosis ? diagnosis.starterPlan.slice(0, diagnosis.routineTaskCount).map((item, index) => ({ id: `personal-${item.day}`, step: index + 2, name: item.title, minutes: diagnosis.routineMinutesPerTask, status: 'todo' })) : [...dailyRoute.tasks].map((task,index)=>({...task,step:index+2}))
   const interviewRoutineDone=interviewAttempts.some(a=>a.questionId==='im2')
   const applicationRoutineDone=listApplicationAnswers().some(a=>a.status==='reviewed'||a.status==='ready')
@@ -55,6 +59,16 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const readinessSnapshot=getCurrentReadinessSnapshot(),weeklySummary=getWeeklyLearningSummary(),nextPriority=generateNextWeekPriorities()[0]
   const adjustedReadiness=readinessSnapshot.currentReadinessScore
   const coachMessage=weeklySummary.activityCount>=2?`${nextPriority.title}을 다음 우선순위로 추천해요. ${nextPriority.reason}`:interviewAttempts.length?'면접 훈련 결과를 반영했어요. 가장 낮은 평가 기준을 중심으로 다음 추천 질문을 연습해 보세요.':trainingProgress.routineCompleted?'자기소개 실전 진단을 완료했어요. 다음에는 경험의 행동과 결과를 더 선명하게 말하고, 마지막에 객실승무원 직무와 연결해 보세요.':diagnosis?.coachMessage ?? readiness.coachingMessage
+  const targetAirlineId=diagnosis?.primaryAirline
+  const airlineProfile=targetAirlineId?airlineKnowledgeRepository.getProfile(targetAirlineId):undefined
+  const airlineContext=targetAirlineId?getAirlineAIContext(targetAirlineId):null
+  const hasPublishedAirlineContext=sessionHistoryAvailable&&canUseAirlineContext({contextAvailable:Boolean(airlineContext),verified:Boolean(airlineContext?.sourceGrade.some(grade=>['A','B','C'].includes(grade))),reviewStatus:airlineProfile?.reviewStatus,publishStatus:airlineProfile?.publishStatus,aiContextEnabled:Boolean(airlineContext?.publishedRecruitmentRequirements.length)})
+  const interviewRecommendation=buildHomeInterviewRecommendation({attempts:interviewAttempts,targetAirlineId,hasPublishedAirlineContext})
+  const drillPlan=buildHomeDrillPlan(interviewRecommendation.topic)
+  const resumableSession=findResumableSession(interviewSessions)
+  const recentCompletedSessions=interviewSessions.filter(item=>item.status==='completed').sort((a,b)=>(b.completedAt??b.startedAt).localeCompare(a.completedAt??a.startedAt)).slice(0,3)
+  const recentGrowth=buildRecentInterviewGrowth(interviewSessions,interviewAttempts)
+  const weeklyInterviewActivity=buildWeeklyInterviewActivity(interviewSessions,interviewAttempts)
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -68,6 +82,8 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   }
 
   function startInterviewQuestion(question:InterviewQuestion,previousAttemptId?:string){const latest=interviewAttempts.find(attempt=>attempt.questionId===question.id);const linkedId=previousAttemptId??latest?.id;setPracticeConfig({question,attemptType:linkedId?'retry':'first',previousAttemptId:linkedId,targetAirlineId:diagnosis?.primaryAirline})}
+  function openSession(session:InterviewSession){const question=interviewQuestionById.get(session.questionIds[session.currentQuestionIndex]);if(!question)return;setMockSession(session);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId})}
+  function startHomeSession(count:3|5){const session=createInterviewSession({mode:'ai_interviewer',airlineId:interviewRecommendation.airlineId,count,questionIds:count===3?drillPlan.selectedQuestionIds:undefined});setInterviewSessions(loadInterviewSessions());openSession(session)}
   function handleTaskStart(id:string){ if(id===SELF_INTRO_TASK_ID){setTrainingView('self-introduction');return} if(id==='application-coach-motivation'){setActiveNav('resume');setTrainingView('application-coach');return} if(id.startsWith('interview-question-')){const q=interviewQuestionById.get(id.replace('interview-question-',''));if(q){setActiveNav('interview');startInterviewQuestion(q)}return} toggleTask(id) }
   function handleTrainingComplete(_attempt:SelfIntroductionAttempt){setTrainingProgress(loadSelfIntroductionProgress())}
   function advanceMockSession(session:InterviewSession,attempt:InterviewAttempt){const next=completeInterviewSessionAttempt(session,attempt.id);if(next.status==='completed'){const completed={...next,sessionAnalysis:analyzeInterviewSession(next,loadInterviewAttempts())};saveInterviewSession(completed);setMockSession(completed);setMockReport(completed);setPracticeConfig(null);return}saveInterviewSession(next);setMockSession(next);const question=interviewQuestionById.get(next.questionIds[next.currentQuestionIndex]);if(question)setPracticeConfig({question,attemptType:'first',targetAirlineId:next.airlineId})}
@@ -89,6 +105,38 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
         <AppHeader />
 
         {activeNav === 'interview' ? (interviewCategory?<AirlineInterviewQuestionList category={interviewCategory} targetAirlineId={diagnosis?.primaryAirline} onBack={()=>setInterviewCategory(null)} onStart={startInterviewQuestion}/>:<><div className="px-5 pt-4"><button onClick={()=>setMockInterviewOpen(true)} className="h-12 w-full rounded-2xl bg-navy text-sm font-bold text-ivory">모의면접 시작</button></div><MockInterviewSessionHistory onStart={()=>setMockInterviewOpen(true)} onResume={(session)=>{const question=interviewQuestionById.get(session.questionIds[session.currentQuestionIndex]);if(question){setMockSession(session);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId})}}} onView={(session)=>{setMockSession(session);setMockReport(session)}}/><InterviewPracticeHome attempts={interviewAttempts} onSelectCategory={setInterviewCategory} onStartQuestion={startInterviewQuestion} onOpenExperience={()=>setTrainingView('experience-library')}/></>) : activeNav === 'my' ? <main className="space-y-4 px-5 pb-8 pt-6"><AccountSummary onLogin={onLogin}/><section className="rounded-3xl border border-border bg-card p-6"><span className="eyebrow text-muted-foreground">MY PROFILE</span><h2 className="mt-3 text-xl font-bold text-navy">나의 준비 설정</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">목표와 진단 답변을 다시 확인하고 맞춤 루틴을 조정할 수 있어요.</p><button type="button" onClick={onEditDiagnosis} className="mt-6 h-12 w-full rounded-2xl border border-navy font-semibold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">진단 다시 하기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">주간 리포트</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">실제 학습 기록과 역량 변화, 다음 주 추천 계획을 확인하세요.</p><button type="button" onClick={()=>setTrainingView('weekly-report')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">주간 리포트 보기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">나의 경험 저장소</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">저장한 경험은 여러 면접 질문에서 다시 활용할 수 있어요.</p><button type="button" onClick={()=>setTrainingView('experience-library')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">경험 저장소 열기</button></section></main> : <main className="flex flex-col gap-7 px-5 pb-8 pt-6">
+          <section aria-labelledby="today-interview-heading" className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+            <div className="rounded-3xl bg-navy p-6 text-ivory shadow-sm">
+              {resumableSession?<>
+                <span className="eyebrow text-gold">RESUME</span>
+                <h1 id="today-interview-heading" className="mt-2 text-2xl font-bold">이어할 면접이 있어요</h1>
+                <p className="mt-2 text-sm text-ivory/75">{resumableSession.mode==='ai_interviewer'?'AI 면접관':'모의면접'} · {Math.min(resumableSession.currentQuestionIndex+1,resumableSession.questionIds.length)} / {resumableSession.questionIds.length} 진행</p>
+                <button type="button" onClick={()=>openSession(resumableSession)} className="mt-5 h-12 w-full rounded-2xl bg-gold font-bold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">이어하기</button>
+              </>:<>
+                <span className="eyebrow text-gold">TODAY</span>
+                <h1 id="today-interview-heading" className="mt-2 text-2xl font-bold">오늘의 AI 면접</h1>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-white/10 px-3 py-1.5">Quick 5</span><span className="rounded-full bg-white/10 px-3 py-1.5">약 8분</span>{targetAirlineId?<span className="rounded-full bg-white/10 px-3 py-1.5">{targetAirlineId} 준비</span>:null}</div>
+                <p className="mt-4 text-sm leading-relaxed text-ivory/75">{interviewAttempts.length?interviewRecommendation.reason:'첫 모의면접을 바로 시작해보세요.'}</p>
+                <p className="mt-2 text-sm font-semibold text-gold">{interviewRecommendation.focus.slice(0,3).join(' · ')}</p>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={()=>startHomeSession(5)} className="h-12 rounded-2xl bg-coral font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">지금 시작</button><button type="button" onClick={()=>setMockInterviewOpen(true)} className="h-12 rounded-2xl border border-white/25 font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">설정하고 시작</button></div>
+              </>}
+            </div>
+            <div className="rounded-3xl border border-border bg-card p-6">
+              <span className="eyebrow text-muted-foreground">RECENT CHANGE</span>
+              <h2 className="mt-2 text-lg font-bold text-navy">최근 변화</h2>
+              {!sessionHistoryReady?<div aria-label="면접 기록 불러오는 중" className="mt-4 h-24 animate-pulse rounded-2xl bg-secondary"/>:recentGrowth.length?<div className="mt-4 space-y-2">{recentGrowth.map(item=><div key={item.label} className="flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2 text-sm"><span className="text-midnight">{item.label}</span><strong className="text-navy">{item.before} → {item.after}</strong></div>)}</div>:<p className="mt-4 text-sm leading-relaxed text-muted-foreground">모의면접을 2번 이상 완료하면 최근 변화가 표시됩니다.</p>}
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-border bg-card p-5">
+              <span className="eyebrow text-gold">TODAY'S DRILL</span><h2 className="mt-2 text-lg font-bold text-navy">{interviewRecommendation.title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interviewRecommendation.reason}</p><button type="button" onClick={()=>startHomeSession(3)} className="mt-4 h-11 w-full rounded-xl bg-navy font-bold text-ivory">3문항 연습</button>
+            </div>
+            <div className="rounded-3xl border border-border bg-card p-5"><span className="eyebrow text-muted-foreground">THIS WEEK</span><h2 className="mt-2 text-lg font-bold text-navy">이번 주 면접 활동</h2><div className="mt-4 grid grid-cols-3 gap-2 text-center">{[['모의면접',weeklyInterviewActivity.sessions],['답변',weeklyInterviewActivity.answers],['재도전',weeklyInterviewActivity.retakes]].map(([label,value])=><div key={String(label)} className="rounded-xl bg-secondary/60 px-2 py-3"><strong className="block text-xl text-navy">{value}</strong><span className="mt-1 block text-xs text-muted-foreground">{label}</span></div>)}</div></div>
+          </section>
+
+          {recentCompletedSessions.length?<section className="rounded-3xl border border-border bg-card p-5"><div className="flex items-center justify-between"><div><span className="eyebrow text-muted-foreground">RECENT</span><h2 className="mt-2 text-lg font-bold text-navy">최근 모의면접</h2></div><button type="button" onClick={()=>setActiveNav('interview')} className="text-sm font-bold text-navy">전체 보기 →</button></div><div className="mt-4 grid gap-3 md:grid-cols-3">{recentCompletedSessions.map(session=><article key={session.id} className="rounded-2xl bg-secondary/60 p-4"><strong className="text-sm text-navy">{session.mode==='ai_interviewer'?'AI 면접관':'모의면접'}</strong><p className="mt-1 text-xs text-muted-foreground">{session.questionIds.length}문항 · {new Date(session.completedAt??session.startedAt).toLocaleDateString('ko-KR')}</p><p className="mt-3 line-clamp-2 text-sm text-midnight">{session.sessionAnalysis?.improvements[0]??'완료한 답변 리포트를 확인해보세요.'}</p><button type="button" onClick={()=>{setMockSession(session);setMockReport(session)}} className="mt-3 text-sm font-bold text-navy">결과 보기</button></article>)}</div></section>:null}
+
           <JourneyCard onStartTraining={() => setActiveNav('routine')} target={diagnosis?.primaryAirline} score={adjustedReadiness} nextGoal={trainingProgress.routineCompleted?'자기소개와 지원동기 다듬기':diagnosis?.priorityAreas[0]?.title} />
 
           {/* Preparation overview */}
