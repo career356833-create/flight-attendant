@@ -10,6 +10,7 @@ import { CoachFeedbackCard } from '@/components/coach-feedback-card'
 import { SecondaryStats } from '@/components/secondary-stats'
 import { BottomNavigation } from '@/components/bottom-navigation'
 import { Lightbulb } from 'lucide-react'
+import { onboardingKo } from '@/lib/onboarding-i18n'
 import { dailyRoute, readiness, type RoutineTask, type TaskStatus } from '@/lib/mock-data'
 import type { DiagnosisResult, OnboardingAnswers } from '@/lib/onboarding-data'
 import { SelfIntroductionFlow } from '@/components/self-introduction'
@@ -30,6 +31,7 @@ import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'
 import { airlineKnowledgeRepository, getAirlineAIContext } from '@/lib/airline-knowledge-repository'
 import { buildHomeDrillPlan, buildHomeInterviewRecommendation, buildRecentInterviewGrowth, buildWeeklyInterviewActivity, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
+import { getExperienceCoverage } from '@/lib/experience-match-engine'
 import type { SelfIntroductionChallengeSeconds } from '@/lib/self-introduction-challenge'
 
 export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, onLogin, initialAccountOpen=false }: { diagnosis?: DiagnosisResult | null; onboardingAnswers?: OnboardingAnswers; onEditDiagnosis?: () => void; onLogin:()=>void; initialAccountOpen?:boolean }) {
@@ -71,6 +73,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const recentCompletedSessions=interviewSessions.filter(item=>item.status==='completed').sort((a,b)=>(b.completedAt??b.startedAt).localeCompare(a.completedAt??a.startedAt)).slice(0,3)
   const recentGrowth=buildRecentInterviewGrowth(interviewSessions,interviewAttempts)
   const weeklyInterviewActivity=buildWeeklyInterviewActivity(interviewSessions,interviewAttempts)
+  const experienceCoverage=getExperienceCoverage()
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -135,6 +138,21 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
               <span className="eyebrow text-gold">TODAY'S DRILL</span><h2 className="mt-2 text-lg font-bold text-navy">{interviewRecommendation.title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interviewRecommendation.reason}</p><button type="button" onClick={()=>startHomeSession(3)} className="mt-4 h-11 w-full rounded-xl bg-navy font-bold text-ivory">3문항 연습</button>
             </div>
             <div className="rounded-3xl border border-border bg-card p-5"><span className="eyebrow text-muted-foreground">THIS WEEK</span><h2 className="mt-2 text-lg font-bold text-navy">이번 주 면접 활동</h2><div className="mt-4 grid grid-cols-3 gap-2 text-center">{[['모의면접',weeklyInterviewActivity.sessions],['답변',weeklyInterviewActivity.answers],['재도전',weeklyInterviewActivity.retakes]].map(([label,value])=><div key={String(label)} className="rounded-xl bg-secondary/60 px-2 py-3"><strong className="block text-xl text-navy">{value}</strong><span className="mt-1 block text-xs text-muted-foreground">{label}</span></div>)}</div></div>
+          </section>
+          <section className="rounded-3xl border border-border bg-card p-5">
+            <span className="eyebrow text-muted-foreground">TODAY'S EXPERIENCE</span>
+            <h2 className="mt-2 text-lg font-bold text-navy">오늘의 경험 준비</h2>
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              <div className="rounded-xl bg-secondary/60 p-3">
+                <p className="text-xs text-muted-foreground">현재 강점</p>
+                <strong className="mt-1 block text-sm text-navy">{experienceCoverage.strongAreas[0] ? onboardingKo.experienceLibrary.competencies[experienceCoverage.strongAreas[0].competency] : '아직 없음'}</strong>
+              </div>
+              <div className="rounded-xl bg-secondary/60 p-3">
+                <p className="text-xs text-muted-foreground">다음 준비</p>
+                <strong className="mt-1 block text-sm text-navy">{experienceCoverage.missingAreas[0] ? onboardingKo.experienceLibrary.competencies[experienceCoverage.missingAreas[0]] : '균형 준비됨'}</strong>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{experienceCoverage.missingAreas.length ? `다음에 준비하면 좋은 경험: ${experienceCoverage.missingAreas.slice(0, 2).map(tag=>onboardingKo.experienceLibrary.competencies[tag]).join(' · ')}` : '핵심 역량이 균형 있게 준비되어 있어요.'}</p>
           </section>
           <button type="button" onClick={()=>{setSelfIntroductionChallengeTarget(60);setTrainingView('self-introduction')}} className="-mt-3 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left"><span><strong className="block text-sm text-navy">오늘 60초 자기소개 연습</strong><span className="mt-1 block text-xs text-muted-foreground">시간과 답변 구조를 함께 점검해보세요.</span></span><span className="text-sm font-bold text-gold">시작 →</span></button>
 

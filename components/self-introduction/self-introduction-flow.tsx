@@ -24,8 +24,10 @@ import { ExperiencePicker } from "@/components/experience-library";
 import { experienceRepository } from "@/lib/experience-repository";
 import { interviewQuestionById } from "@/lib/interview-practice-data";
 import { aiService } from "@/lib/ai/ai-service";
+import { onboardingKo } from "@/lib/onboarding-i18n";
 import { airlines, airlineById } from "@/lib/airline-data";
 import { analyzeSelfIntroductionChallenge, challengeTypeFor, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
+import { recommendExperiencesForSelfIntroduction } from "@/lib/experience-match-engine";
 import { createInterviewAudioMonitor, type InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
 import { buildInterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
 
@@ -75,6 +77,8 @@ export function SelfIntroductionFlow({
   const selectedExperience = experiences.find(
     (e) => e.id === selectedExperienceId,
   );
+  const airlineContextTags = getSelfIntroductionAirlineContext(selectedAirlineId)?.publishedInterviewQuestion.flatMap((question) => question.competencyTags);
+  const selfIntroRecommendations = recommendExperiencesForSelfIntroduction(experiences, airlineContextTags?.length ? { competencyTags: airlineContextTags, airlineName: airlineById.get(selectedAirlineId!)?.name } : undefined);
 
   useEffect(
     () => () => {
@@ -340,11 +344,14 @@ export function SelfIntroductionFlow({
             <p className="mb-2 text-sm font-bold text-navy">
               자기소개에 활용할 대표 경험
             </p>
+            {selfIntroRecommendations.length ? <div className="mb-3 space-y-2 rounded-2xl border border-border bg-card p-3">{selfIntroRecommendations.slice(0, 2).map(({ experience, reasons }) => <button key={experience.id} type="button" onClick={() => setSelectedExperienceId(experience.id)} className={`w-full rounded-xl border p-3 text-left ${selectedExperienceId===experience.id?'border-navy bg-secondary/50':'border-border bg-background'}`}><strong className="block text-sm text-navy">{experience.title}</strong><p className="mt-1 text-xs text-muted-foreground">{experience.competencyTags.slice(0,2).map((tag) => onboardingKo.experienceLibrary.competencies[tag]).join(' · ')}</p><p className="mt-2 text-[11px] leading-relaxed text-gold">{reasons[0]}</p></button>)}</div> : null}
             <ExperiencePicker
               question={interviewQuestionById.get("im1")!}
               items={experiences}
               selected={selectedExperienceId}
               onSelect={setSelectedExperienceId}
+              airlineCompetencyTags={airlineContextTags}
+              airlineLabel={selectedAirlineId ? airlineById.get(selectedAirlineId)?.name : undefined}
               onAdd={() => {}}
             />
           </div>

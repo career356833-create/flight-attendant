@@ -4,10 +4,12 @@ import {
   getPublishedAirlineKnowledge,
 } from "@/lib/airline-knowledge-repository";
 import {
-  assessExperience,
   experienceRepository,
   type CareerExperience,
 } from "@/lib/experience-repository";
+import {
+  recommendExperiencesForApplication,
+} from "@/lib/experience-match-engine";
 import type { CapabilityKey } from "@/lib/interview-practice-data";
 
 export type ApplicationDocumentType =
@@ -576,50 +578,24 @@ export function analyzeApplicationAnswerWithAirlineContext(
     missingCompetency,
   };
 }
-const categoryCapabilities: Record<string, CapabilityKey[]> = {
-  customer_service: ["customer_situation_handling"],
-  problem_solving: ["customer_situation_handling"],
-  teamwork: ["interview_communication"],
-  conflict_resolution: ["customer_situation_handling"],
-  safety_judgment: ["safety_and_role_judgment"],
-  responsibility: ["safety_and_role_judgment"],
-  failure_and_growth: ["interview_communication"],
-  adaptability: ["interview_communication"],
-  leadership: ["interview_communication"],
-  multicultural: ["recruitment_language"],
-  other: ["application_readiness"],
-};
 export function recommendApplicationExperiences(
   prompt: ApplicationPrompt,
   items = experienceRepository.load().experiences,
 ) {
-  return items
-    .map((experience) => {
-      const capabilityMatches = (
-        categoryCapabilities[experience.category] ?? []
-      ).filter((c) => prompt.targetCapabilities.includes(c)).length;
-      const text = [experience.title, ...experience.competencyTags].join(" ");
-      const keywordMatches = prompt.prompt
-        .split(/\s+/)
-        .filter(
-          (w) => w.length > 1 && text.includes(w.replace(/[,.]/g, "")),
-        ).length;
-      const completeness = assessExperience(experience).score;
-      const overuse = Math.min(15, experience.usageCount * 2);
-      return {
-        experience,
-        score:
-          capabilityMatches * 30 +
-          keywordMatches * 4 +
-          completeness * 0.35 -
-          overuse,
-        reason: capabilityMatches
-          ? "문항의 핵심 역량과 경험 유형이 연결돼요."
-          : "완성도와 활용 빈도를 고려한 추천이에요.",
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+  const context = getApplicationAirlineContext(prompt.airlineId);
+  const airlineCompetencyTags = context?.publishedInterviewQuestion.flatMap(
+    (question) => question.competencyTags,
+  );
+  return recommendExperiencesForApplication(prompt, items, airlineCompetencyTags?.length ? {
+    competencyTags: airlineCompetencyTags,
+    airlineName: context?.publishedProfile.name,
+  } : undefined).map(
+    ({ experience, matchScore, reasons }) => ({
+      experience,
+      score: matchScore,
+      reason: reasons[0] ?? "완성도와 활용 빈도를 고려한 추천이에요.",
+    }),
+  );
 }
 export function coachingQuestionsFor(prompt: ApplicationPrompt) {
   if (
