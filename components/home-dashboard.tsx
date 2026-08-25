@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from '@/components/app-header'
 import { JourneyCard } from '@/components/journey-card'
 import { ReadinessGauge } from '@/components/readiness-gauge'
@@ -21,7 +21,7 @@ import { analyzeInterviewSession, completeInterviewSessionAttempt, createIntervi
 import { buildFollowUpQuestion, decideAiInterviewerFollowUp } from '@/lib/ai-interviewer'
 import { interviewQuestionById, loadInterviewAttempts, loadInterviewCapabilityGains, saveInterviewAttempt, type InterviewAttempt, type InterviewCategory, type InterviewPracticeConfig, type InterviewQuestion } from '@/lib/interview-practice-data'
 import { ExperienceLibrary } from '@/components/experience-library'
-import type { CareerExperience } from '@/lib/experience-repository'
+import { experienceRepository, type CareerExperience } from '@/lib/experience-repository'
 import { ApplicationCoach } from '@/components/application-coach'
 import { getApplicationCapabilityGains, listApplicationAnswers } from '@/lib/application-answer-repository'
 import { WeeklyReportHome } from '@/components/weekly-report'
@@ -32,6 +32,9 @@ import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositori
 import { airlineKnowledgeRepository, getAirlineAIContext } from '@/lib/airline-knowledge-repository'
 import { buildHomeDrillPlan, buildHomeInterviewRecommendation, buildRecentInterviewGrowth, buildWeeklyInterviewActivity, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
 import { getExperienceCoverage } from '@/lib/experience-match-engine'
+import { listWorkDrafts } from '@/lib/application-answer-repository'
+import { buildExperienceUsageSummary, describeExperienceUsageBalance, describeExperienceUsageConcentration } from '@/lib/experience-usage-history'
+import { loadSelfIntroductionAttempts } from '@/lib/self-introduction-data'
 import type { SelfIntroductionChallengeSeconds } from '@/lib/self-introduction-challenge'
 
 export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, onLogin, initialAccountOpen=false }: { diagnosis?: DiagnosisResult | null; onboardingAnswers?: OnboardingAnswers; onEditDiagnosis?: () => void; onLogin:()=>void; initialAccountOpen?:boolean }) {
@@ -51,7 +54,9 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const [sessionHistoryAvailable,setSessionHistoryAvailable]=useState(true)
   const [capabilityGains,setCapabilityGains]=useState<Record<string,number>>({})
   const [trainingProgress,setTrainingProgress]=useState<SelfIntroductionProgress>({routineCompleted:false,interviewScoreGain:0,scoreHistory:[]})
-  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());setCapabilityGains({...loadInterviewCapabilityGains(),...getApplicationCapabilityGains()});const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true)},[])
+  const [usageRevision,setUsageRevision]=useState(0)
+  const [experienceRevision,setExperienceRevision]=useState(0)
+  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());setCapabilityGains({...loadInterviewCapabilityGains(),...getApplicationCapabilityGains()});const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true);const usageChanged=()=>setUsageRevision(v=>v+1);const experienceChanged=()=>setExperienceRevision(v=>v+1);window.addEventListener('cabin:training-sync-changed',usageChanged);window.addEventListener('cabin:application-local-changed',usageChanged);window.addEventListener('cabin:application-sync-changed',usageChanged);window.addEventListener('cabin:experience-sync-changed',experienceChanged);return()=>{window.removeEventListener('cabin:training-sync-changed',usageChanged);window.removeEventListener('cabin:application-local-changed',usageChanged);window.removeEventListener('cabin:application-sync-changed',usageChanged);window.removeEventListener('cabin:experience-sync-changed',experienceChanged)}},[])
   const baseTasks: RoutineTask[] = diagnosis ? diagnosis.starterPlan.slice(0, diagnosis.routineTaskCount).map((item, index) => ({ id: `personal-${item.day}`, step: index + 2, name: item.title, minutes: diagnosis.routineMinutesPerTask, status: 'todo' })) : [...dailyRoute.tasks].map((task,index)=>({...task,step:index+2}))
   const interviewRoutineDone=interviewAttempts.some(a=>a.questionId==='im2')
   const applicationRoutineDone=listApplicationAnswers().some(a=>a.status==='reviewed'||a.status==='ready')
@@ -74,6 +79,8 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const recentGrowth=buildRecentInterviewGrowth(interviewSessions,interviewAttempts)
   const weeklyInterviewActivity=buildWeeklyInterviewActivity(interviewSessions,interviewAttempts)
   const experienceCoverage=getExperienceCoverage()
+  const experienceUsageById=useMemo(()=>buildExperienceUsageSummary({experiences:experienceRepository.load().experiences,interviewAttempts:loadInterviewAttempts(),applicationAnswers:listApplicationAnswers(),applicationWorkDrafts:listWorkDrafts(),selfIntroductionAttempts:loadSelfIntroductionAttempts()}),[usageRevision,experienceRevision,interviewAttempts.length,interviewSessions.length,trainingProgress.routineCompleted])
+  const homeExperienceUsage=Object.values(experienceUsageById).sort((a,b)=>b.totalUsageCount-a.totalUsageCount)[0]
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -142,6 +149,9 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
           <section className="rounded-3xl border border-border bg-card p-5">
             <span className="eyebrow text-muted-foreground">TODAY'S EXPERIENCE</span>
             <h2 className="mt-2 text-lg font-bold text-navy">오늘의 경험 준비</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {homeExperienceUsage ? describeExperienceUsageConcentration(homeExperienceUsage) : '아직 연결된 사용 이력이 없어요.'}
+            </p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               <div className="rounded-xl bg-secondary/60 p-3">
                 <p className="text-xs text-muted-foreground">현재 강점</p>
@@ -152,6 +162,9 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
                 <strong className="mt-1 block text-sm text-navy">{experienceCoverage.missingAreas[0] ? onboardingKo.experienceLibrary.competencies[experienceCoverage.missingAreas[0]] : '균형 준비됨'}</strong>
               </div>
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {homeExperienceUsage ? `활용 ${homeExperienceUsage.totalUsageCount}회 · ${describeExperienceUsageBalance(homeExperienceUsage)}` : '면접 · 지원서 · 자기소개에서 같은 경험을 다시 쓰면 여기에 표시돼요.'}
+            </p>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{experienceCoverage.missingAreas.length ? `다음에 준비하면 좋은 경험: ${experienceCoverage.missingAreas.slice(0, 2).map(tag=>onboardingKo.experienceLibrary.competencies[tag]).join(' · ')}` : '핵심 역량이 균형 있게 준비되어 있어요.'}</p>
           </section>
           <button type="button" onClick={()=>{setSelfIntroductionChallengeTarget(60);setTrainingView('self-introduction')}} className="-mt-3 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left"><span><strong className="block text-sm text-navy">오늘 60초 자기소개 연습</strong><span className="mt-1 block text-xs text-muted-foreground">시간과 답변 구조를 함께 점검해보세요.</span></span><span className="text-sm font-bold text-gold">시작 →</span></button>

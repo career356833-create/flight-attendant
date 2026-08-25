@@ -302,9 +302,14 @@ export function saveWorkDraft(draft: ApplicationWorkDraft) {
     ...s.workDrafts.filter((x) => x.id !== draft.id),
   ].slice(0, 10);
   write(s);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("cabin:application-local-changed"));
+  }
 }
 export const getWorkDraft = (id: string) =>
   read().workDrafts.find((x) => x.id === id);
+export const listWorkDrafts = () =>
+  read().workDrafts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 export function saveCustomPrompt(prompt: ApplicationPrompt) {
   const s = read();
   s.customPrompts = [
