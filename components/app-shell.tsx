@@ -80,7 +80,9 @@ export function AppShell() {
           view === 'home' && 'responsive-app',
           view === 'home' || view === 'admin' || view === 'ai-admin'
             ? 'md:h-[calc(100dvh-2rem)] md:max-w-[1600px] xl:h-[calc(100dvh-3rem)]'
-            : 'max-w-[420px] md:h-[calc(100dvh-3rem)] md:max-h-[880px]',
+            : view === 'landing' || view === 'auth'
+              ? 'max-w-[480px] md:h-[calc(100dvh-2rem)] md:max-w-[1440px] xl:h-[calc(100dvh-3rem)]'
+              : 'max-w-[480px] md:h-[calc(100dvh-3rem)] md:max-w-[760px] md:max-h-[920px]',
           'md:rounded-[2rem] md:border md:border-white/10',
           'md:shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]',
         )}

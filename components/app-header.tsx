@@ -5,10 +5,10 @@ import { userProfile } from '@/lib/mock-data'
 
 export function AppHeader() {
   return (
-    <header className="flex items-center justify-between gap-4 px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+    <header className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] md:px-8 min-[900px]:pt-7 xl:px-10">
       <div className="min-w-0">
         <p className="eyebrow text-muted-foreground">{userProfile.greetingEn}</p>
-        <h1 className="mt-1.5 truncate text-[1.35rem] font-bold tracking-tight text-navy">
+        <h1 className="mt-1.5 truncate text-[1.35rem] font-bold tracking-tight text-navy min-[900px]:text-[1.7rem]">
           {userProfile.greeting}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">

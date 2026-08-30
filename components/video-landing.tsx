@@ -96,7 +96,7 @@ export function VideoLanding({ onStart, onLogin, videoUrl }: VideoLandingProps) 
       </div>
 
       {/* Top brand */}
-      <header className="relative z-10 flex items-center gap-2.5 px-6 pt-[calc(env(safe-area-inset-top)+1.75rem)]">
+      <header className="relative z-10 flex items-center gap-2.5 px-6 pt-[calc(env(safe-area-inset-top)+1.75rem)] md:px-12 md:pt-10 lg:px-16">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-ivory/30 bg-ivory/5 backdrop-blur-sm">
           <span className="h-1.5 w-1.5 rounded-full bg-gold" />
         </span>
@@ -108,13 +108,15 @@ export function VideoLanding({ onStart, onLogin, videoUrl }: VideoLandingProps) 
         </div>
       </header>
 
+      <div aria-hidden="true" className="absolute right-[7%] top-1/2 z-10 hidden h-[52%] w-[34%] -translate-y-1/2 rounded-[45%] border border-ivory/20 bg-gradient-to-br from-sky/25 via-white/5 to-transparent shadow-[inset_0_0_80px_rgba(220,230,236,0.14),0_30px_100px_rgba(0,0,0,0.28)] backdrop-blur-[2px] md:block" />
+
       {/* Lower-third content */}
-      <div className="relative z-10 mt-auto flex flex-col gap-6 px-6 pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
+      <div className="relative z-10 mt-auto flex flex-col gap-6 px-6 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] md:max-w-[58%] md:px-12 md:pb-14 lg:max-w-[52%] lg:px-16 lg:pb-16">
         <div className="flex flex-col gap-4">
           <span className="eyebrow w-fit rounded-full border border-ivory/20 bg-ivory/5 px-3 py-1.5 text-gold backdrop-blur-sm">
             AI CAREER PREPARATION
           </span>
-          <h1 className="whitespace-pre-line text-pretty text-[2rem] font-bold leading-[1.25] tracking-tight text-ivory">
+          <h1 className="whitespace-pre-line text-pretty text-[2rem] font-bold leading-[1.25] tracking-tight text-ivory md:text-[2.8rem] lg:text-[3.25rem]">
             {landingContent.headline}
           </h1>
           <p className="whitespace-pre-line text-pretty text-[0.95rem] leading-relaxed text-ivory/70">
@@ -122,12 +124,12 @@ export function VideoLanding({ onStart, onLogin, videoUrl }: VideoLandingProps) 
           </p>
         </div>
 
-        <div className="flex flex-col items-stretch gap-4">
+        <div className="flex flex-col items-stretch gap-4 md:max-w-[520px] md:flex-row md:items-center">
           <button
             type="button"
             onClick={handleStart}
             className={cn(
-              'group flex h-14 items-center justify-center gap-2 rounded-2xl bg-ivory text-base font-semibold text-navy',
+              'group flex h-14 items-center justify-center gap-2 rounded-2xl bg-ivory px-8 text-base font-semibold text-navy md:min-w-[240px]',
               'shadow-[0_12px_40px_-12px_rgba(0,0,0,0.6)] transition-all duration-300',
               'hover:bg-white active:scale-[0.98]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy',
@@ -140,7 +142,7 @@ export function VideoLanding({ onStart, onLogin, videoUrl }: VideoLandingProps) 
           <button
             type="button"
             onClick={onLogin}
-            className="mx-auto text-sm text-ivory/65 underline-offset-4 transition-colors hover:text-ivory hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy rounded"
+            className="mx-auto rounded text-sm text-ivory/65 underline-offset-4 transition-colors hover:text-ivory hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy md:mx-0 md:px-3"
           >
             {landingContent.loginLink}
           </button>

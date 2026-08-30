@@ -60,12 +60,19 @@ export function AuthScreen({onBack,onAuthenticated,initialOAuthError}:{onBack:()
     if(!result.ok){setGoogleBusy(false);setMessage(oauthMessage(result.message))}
   }
 
-  return <div className="flex h-full flex-col bg-background">
+  return <div className="grid h-full bg-background md:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]">
+    <aside className="relative hidden overflow-hidden bg-navy p-12 text-ivory md:flex md:flex-col md:justify-between" aria-label="CABIN 소개">
+      <div className="absolute -right-24 top-1/2 h-[420px] w-[300px] -translate-y-1/2 rounded-[48%] border border-white/15 bg-gradient-to-br from-sky/20 via-white/5 to-transparent shadow-[inset_0_0_70px_rgba(220,230,236,0.12)]" aria-hidden="true"/>
+      <div className="relative"><span className="text-xs font-bold tracking-[0.2em] text-gold">CABIN</span><p className="mt-3 text-xl font-bold">AI Career Coach</p></div>
+      <div className="relative max-w-xl"><p className="text-4xl font-bold leading-tight">준비한 경험이<br/>면접의 자신감이 되도록.</p><p className="mt-5 max-w-md text-base leading-7 text-ivory/65">면접, 자기소개, 지원서를 하나의 준비 흐름으로 연결합니다.</p></div>
+      <p className="relative text-xs text-ivory/45">SECURE CLOUD SYNC</p>
+    </aside>
+    <section className="flex min-h-0 flex-col bg-background">
     <header className="flex items-center gap-3 px-5 pt-[calc(env(safe-area-inset-top)+1.4rem)]">
       <button onClick={onBack} aria-label="뒤로" className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card"><ArrowLeft className="h-5 w-5"/></button>
       <span className="eyebrow text-muted-foreground">SECURE ACCOUNT</span>
     </header>
-    <main className="flex-1 overflow-y-auto px-6 pb-10 pt-10">
+    <main className="flex-1 overflow-y-auto px-6 pb-10 pt-10 md:px-10">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-navy text-gold"><Cloud/></div>
       <h1 className="mt-6 text-3xl font-bold tracking-tight text-navy">{mode==='welcome'?'기록을 어디서나 이어가세요':mode==='signin'?'로그인':mode==='signup'?'회원가입':mode==='forgot'?'비밀번호 찾기':mode==='reset'?'새 비밀번호 설정':'이메일을 확인해 주세요'}</h1>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{mode==='welcome'?'지금 기기의 기록은 그대로 유지됩니다. 로그인하면 계정에 연결해 다른 기기에서도 이어갈 수 있어요.':mode==='verification'?`${email}로 인증 링크를 보냈어요. 인증한 뒤 로그인해 주세요.`:'이메일과 비밀번호는 Supabase Auth에서 안전하게 처리됩니다.'}</p>
@@ -101,5 +108,6 @@ export function AuthScreen({onBack,onAuthenticated,initialOAuthError}:{onBack:()
       {mode==='signin'&&<div className="mt-5 flex justify-between text-sm"><button onClick={()=>setMode('signup')} className="font-semibold text-navy">회원가입</button><button onClick={()=>setMode('forgot')} className="text-muted-foreground">비밀번호 찾기</button></div>}
       {mode==='verification'&&<button onClick={()=>setMode('signin')} className="mt-8 h-14 w-full rounded-2xl bg-navy font-bold text-ivory">로그인으로 돌아가기</button>}
     </main>
+    </section>
   </div>
 }
