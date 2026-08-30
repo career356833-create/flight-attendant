@@ -73,13 +73,15 @@ export function AppShell() {
   }
 
   return (
-    // Restrained responsive layout: full-bleed on mobile, centered device frame on desktop.
-    <div className="flex min-h-dvh w-full justify-center bg-navy md:items-center md:p-6">
+    <div className="flex min-h-dvh w-full justify-center bg-navy md:p-4 xl:p-6">
       <div
         className={cn(
-          'relative w-full max-w-[420px] overflow-hidden bg-background',
-          'h-dvh md:h-[calc(100dvh-3rem)] md:max-h-[880px]',
-          'md:rounded-[2.25rem] md:border md:border-white/10',
+          'relative h-dvh w-full overflow-hidden bg-background',
+          view === 'home' && 'responsive-app',
+          view === 'home' || view === 'admin' || view === 'ai-admin'
+            ? 'md:h-[calc(100dvh-2rem)] md:max-w-[1600px] xl:h-[calc(100dvh-3rem)]'
+            : 'max-w-[420px] md:h-[calc(100dvh-3rem)] md:max-h-[880px]',
+          'md:rounded-[2rem] md:border md:border-white/10',
           'md:shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]',
         )}
       >

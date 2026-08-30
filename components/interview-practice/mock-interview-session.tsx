@@ -16,7 +16,7 @@ export function MockInterviewLauncher({airlineId,onStart,onView,onBack}:{airline
   const active=sessions.find(s=>s.status==='in_progress')
   const history=sessions.filter(s=>s.status==='completed').slice(0,5)
   const sessionAirlineId=mode==='airline_specific'||mode==='ai_interviewer'?airlineId:undefined
-  return <main className="mx-auto max-w-[390px] space-y-4 px-5 pb-8 pt-6">
+  return <main className="mx-auto w-full max-w-[1180px] space-y-4 px-5 pb-8 pt-6 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0 lg:px-8">
     <button onClick={onBack} className="text-sm font-bold text-navy">← 면접 훈련실</button>
     <section className="rounded-3xl bg-navy p-6 text-ivory"><p className="text-xs font-bold text-gold">MOCK INTERVIEW</p><h1 className="mt-2 text-xl font-bold">모의면접 시작</h1><p className="mt-2 text-sm text-ivory/75">여러 질문을 차례로 답하고 세션 리포트를 받아보세요.</p></section>
     {active&&<section className="rounded-2xl border border-gold bg-card p-4"><h2 className="font-bold text-navy">진행 중인 모의면접이 있습니다.</h2><p className="mt-1 text-sm text-muted-foreground">{active.currentQuestionIndex+1} / {active.questionIds.length} 질문</p><button onClick={()=>begin(active)} className="mt-3 h-11 w-full rounded-xl bg-navy font-bold text-ivory">이어하기</button></section>}

@@ -42,7 +42,7 @@ export function DiagnosisFrame({
 }) {
   return (
     <div className="flex h-full flex-col bg-background">
-      <header className="px-5 pt-[calc(env(safe-area-inset-top)+1rem)]">
+      <header className="mx-auto w-full max-w-[1440px] px-5 pt-[calc(env(safe-area-inset-top)+1rem)] lg:px-8">
         {onBack ? (
           <button
             type="button"
@@ -56,7 +56,7 @@ export function DiagnosisFrame({
           <span className="block h-10" />
         )}
       </header>
-      <main className="flex-1 overflow-y-auto px-5 pb-8 pt-5">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto px-5 pb-8 pt-5 lg:px-8">
         {title && (
           <div className="mb-7">
             <span className="eyebrow text-gold">PRACTICE DIAGNOSIS</span>
@@ -73,7 +73,7 @@ export function DiagnosisFrame({
         {children}
       </main>
       {footer && (
-        <div className="border-t border-border bg-background/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur">
+        <div className="border-t border-border bg-background/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur lg:px-8 [&>*]:mx-auto [&>*]:max-w-[960px]">
           {footer}
         </div>
       )}

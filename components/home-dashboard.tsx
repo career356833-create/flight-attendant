@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { AppHeader } from '@/components/app-header'
 import { JourneyCard } from '@/components/journey-card'
 import { ReadinessGauge } from '@/components/readiness-gauge'
@@ -8,7 +9,7 @@ import { SkillProgressList } from '@/components/skill-progress-list'
 import { DailyRoutineList } from '@/components/daily-routine-list'
 import { CoachFeedbackCard } from '@/components/coach-feedback-card'
 import { SecondaryStats } from '@/components/secondary-stats'
-import { BottomNavigation } from '@/components/bottom-navigation'
+import { BottomNavigation, DesktopNavigation } from '@/components/bottom-navigation'
 import { Lightbulb } from 'lucide-react'
 import { onboardingKo } from '@/lib/onboarding-i18n'
 import { dailyRoute, readiness, type RoutineTask, type TaskStatus } from '@/lib/mock-data'
@@ -111,18 +112,21 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   function handleInterviewComplete(attempt:InterviewAttempt){if(practiceConfig?.sourceQueueItemId)interviewPracticeQueueRepository.markPracticed(practiceConfig.sourceQueueItemId);setInterviewAttempts(loadInterviewAttempts());setCapabilityGains(loadInterviewCapabilityGains());if(!mockSession)return;if(pendingFollowUp){const enriched=pendingFollowUp.adaptive?{...attempt,isFollowUp:true,parentAttemptId:pendingFollowUp.attempt.id,followUpReason:pendingFollowUp.reason,followUpTemplateId:pendingFollowUp.templateId}:attempt;if(pendingFollowUp.adaptive){saveInterviewAttempt(enriched);queueTrainingAttempt('interview',enriched,Boolean(enriched.audioId));setInterviewAttempts(loadInterviewAttempts())}setPendingFollowUp(null);advanceMockSession(mockSession,enriched);return}setPendingSessionAttempt(attempt)}
   function continueMockSession(){if(!mockSession||!pendingSessionAttempt)return;if(mockSession.mode==='ai_interviewer'){const question=interviewQuestionById.get(mockSession.questionIds[mockSession.currentQuestionIndex]);const prior=loadInterviewAttempts().filter(item=>mockSession.attemptIds.includes(item.id)&&item.isFollowUp);const decision=question?decideAiInterviewerFollowUp({question,attempt:pendingSessionAttempt,session:mockSession,priorFollowUps:prior,language:'ko',hasPublishedAirlineContext:Boolean(mockSession.airlineId&&getAirlineAIContext(mockSession.airlineId))}):{shouldAsk:false as const,source:'deterministic' as const};if(decision.shouldAsk&&question){const held=completeInterviewSessionAttempt(mockSession,pendingSessionAttempt.id,false);saveInterviewSession(held);setMockSession(held);setPendingSessionAttempt(null);setPracticeConfig(null);setPendingFollowUp({attempt:pendingSessionAttempt,message:decision.questionText??'',adaptive:true,question:buildFollowUpQuestion(question,decision),reason:decision.reason,templateId:decision.templateId});return}}const message=followUpForAttempt(pendingSessionAttempt);if(message&&mockSession.mode!=='ai_interviewer'){const held=completeInterviewSessionAttempt(mockSession,pendingSessionAttempt.id,false);saveInterviewSession(held);setMockSession(held);setPendingSessionAttempt(null);setPracticeConfig(null);setPendingFollowUp({attempt:pendingSessionAttempt,message});return}const attempt=pendingSessionAttempt;setPendingSessionAttempt(null);advanceMockSession(mockSession,attempt)}
 
-  if(trainingView==='self-introduction')return <SelfIntroductionFlow targetAirlineId={diagnosis?.primaryAirline} initialChallengeTarget={selfIntroductionChallengeTarget} onExit={()=>setTrainingView('dashboard')} onComplete={handleTrainingComplete}/>
-  if(trainingView==='experience-library')return <ExperienceLibrary onExit={()=>setTrainingView('dashboard')} onPractice={(question,experience)=>{setTrainingView('dashboard');setActiveNav('interview');startInterviewQuestion(question,undefined,experience.id)}}/>
-  if(trainingView==='application-tracker')return <ApplicationTracker onExit={()=>setTrainingView('dashboard')} onOpenCoach={airlineId=>{setApplicationAirlineId(airlineId);setTrainingView('application-coach')}} onPractice={airlineId=>{const question=interviewQuestionById.get('im2');setTrainingView('dashboard');setActiveNav('interview');if(question)startInterviewQuestion(question,undefined,undefined,airlineId)}} onOpenExperience={()=>setTrainingView('experience-library')}/>
-  if(trainingView==='application-coach'||activeNav==='resume')return <ApplicationCoach initialAirlineId={applicationAirlineId??(onboardingAnswers?.primaryAirline&&!['custom_airline','undecided_airline'].includes(onboardingAnswers.primaryAirline.id)?onboardingAnswers.primaryAirline.id:undefined)} onExit={()=>{setApplicationAirlineId(undefined);setTrainingView('dashboard');setActiveNav('home')}} onOpenExperience={()=>setTrainingView('experience-library')} onPractice={(category,_keywords)=>{const question=interviewQuestionById.get(category==='introduction_and_motivation'?'im2':category==='customer_situation'?'cs1':category==='safety_and_role_judgment'?'sj1':'be1');setTrainingView('dashboard');setActiveNav('interview');if(question)startInterviewQuestion(question,undefined,undefined,applicationAirlineId)}}/>
-  if(trainingView==='weekly-report')return <WeeklyReportHome onBack={()=>setTrainingView('dashboard')}/>
+  const featureShell=(content:ReactNode)=><div className="responsive-app flex h-full bg-background"><DesktopNavigation active={activeNav} onChange={setActiveNav}/><div className="min-w-0 flex-1 overflow-y-auto">{content}</div></div>
+  if(trainingView==='self-introduction')return featureShell(<SelfIntroductionFlow targetAirlineId={diagnosis?.primaryAirline} initialChallengeTarget={selfIntroductionChallengeTarget} onExit={()=>setTrainingView('dashboard')} onComplete={handleTrainingComplete}/>)
+  if(trainingView==='experience-library')return featureShell(<ExperienceLibrary onExit={()=>setTrainingView('dashboard')} onPractice={(question,experience)=>{setTrainingView('dashboard');setActiveNav('interview');startInterviewQuestion(question,undefined,experience.id)}}/>)
+  if(trainingView==='application-tracker')return featureShell(<ApplicationTracker onExit={()=>setTrainingView('dashboard')} onOpenCoach={airlineId=>{setApplicationAirlineId(airlineId);setTrainingView('application-coach')}} onPractice={airlineId=>{const question=interviewQuestionById.get('im2');setTrainingView('dashboard');setActiveNav('interview');if(question)startInterviewQuestion(question,undefined,undefined,airlineId)}} onOpenExperience={()=>setTrainingView('experience-library')}/>)
+  if(trainingView==='application-coach'||activeNav==='resume')return featureShell(<ApplicationCoach initialAirlineId={applicationAirlineId??(onboardingAnswers?.primaryAirline&&!['custom_airline','undecided_airline'].includes(onboardingAnswers.primaryAirline.id)?onboardingAnswers.primaryAirline.id:undefined)} onExit={()=>{setApplicationAirlineId(undefined);setTrainingView('dashboard');setActiveNav('home')}} onOpenExperience={()=>setTrainingView('experience-library')} onPractice={(category,_keywords)=>{const question=interviewQuestionById.get(category==='introduction_and_motivation'?'im2':category==='customer_situation'?'cs1':category==='safety_and_role_judgment'?'sj1':'be1');setTrainingView('dashboard');setActiveNav('interview');if(question)startInterviewQuestion(question,undefined,undefined,applicationAirlineId)}}/>)
+  if(trainingView==='weekly-report')return featureShell(<WeeklyReportHome onBack={()=>setTrainingView('dashboard')}/>)
   if(practiceConfig)return <>{mockSession&&<MockInterviewProgress session={mockSession} onExit={()=>setPracticeConfig(null)}/>}<InterviewPracticeEngine config={practiceConfig} onExit={()=>setPracticeConfig(null)} onComplete={handleInterviewComplete} onNextQuestion={(question)=>startInterviewQuestion(question)} onOpenExperience={selectedExperienceId=>{setPracticeConfig(current=>current?{...current,selectedExperienceId}:current);setTrainingView('experience-library')}} sessionAction={mockSession&&pendingSessionAttempt?{label:mockSession.currentQuestionIndex>=mockSession.questionIds.length-1?'모의면접 결과 보기':'다음 질문',onContinue:continueMockSession}:undefined}/></>
   if(pendingFollowUp&&mockSession){const question=pendingFollowUp.question??interviewQuestionById.get(mockSession.questionIds[mockSession.currentQuestionIndex]);return <MockInterviewFollowUp message={pendingFollowUp.message} adaptive={pendingFollowUp.adaptive} onSkip={()=>{const pending=pendingFollowUp;setPendingFollowUp(null);advanceMockSession(mockSession,pending.attempt)}} onAnswer={()=>{if(question){setPracticeConfig({question,attemptType:'first',previousAttemptId:pendingFollowUp.attempt.id,targetAirlineId:mockSession.airlineId,followUp:pendingFollowUp.adaptive&&pendingFollowUp.reason&&pendingFollowUp.templateId?{parentAttemptId:pendingFollowUp.attempt.id,reason:pendingFollowUp.reason,templateId:pendingFollowUp.templateId}:undefined})}}}/>}
   if(mockReport)return <MockInterviewReport session={mockReport} attempts={interviewAttempts} onBack={()=>{setMockReport(null);setMockSession(null);setActiveNav('interview')}} onRetake={()=>{setMockReport(null);setMockInterviewOpen(true);setMockSession(null)}} onRetry={(attempt)=>{const question=interviewQuestionById.get(attempt.questionId);if(question){setMockReport(null);startInterviewQuestion(question,attempt.id)}}}/>
   if(mockInterviewOpen)return <MockInterviewLauncher airlineId={diagnosis?.primaryAirline} onBack={()=>setMockInterviewOpen(false)} onView={(session)=>{setMockInterviewOpen(false);setMockSession(session);setMockReport(session)}} onStart={(session,question)=>{setMockSession(session);setMockInterviewOpen(false);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId})}}/>
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="responsive-app flex h-full bg-background">
+      <DesktopNavigation active={activeNav} onChange={setActiveNav}/>
+      <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto overscroll-contain">
         <AppHeader />
         {activeNav === 'interview'&&!interviewCategory&&<InterviewPracticeQueuePanel onStartQuestion={startInterviewQuestion} onStartQueued={(question,item)=>startInterviewQuestion(question,undefined,undefined,item.airlineId,item.id)}/>}
@@ -241,6 +245,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
       </div>
 
       <BottomNavigation active={activeNav} onChange={setActiveNav} />
+      </div>
     </div>
   )
 }
