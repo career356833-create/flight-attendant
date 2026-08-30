@@ -6,6 +6,7 @@ import type { InterviewAudioMetrics } from '@/lib/interview-audio/audio-analysis
 import type { InterviewSpeechMetrics } from '@/lib/interview-audio/speech-analysis'
 import type { PronunciationAnalysisResult } from '@/lib/ai/pronunciation-provider'
 import type { InterviewContentAnalysis } from '@/lib/interview-content-analysis'
+import type { TranscriptionMode } from '@/lib/ai/types'
 
 export type InterviewCategory = 'introduction_and_motivation' | 'behavioral_experience' | 'customer_situation' | 'safety_and_role_judgment'
 export type CapabilityKey = 'application_readiness' | 'interview_communication' | 'customer_situation_handling' | 'safety_and_role_judgment' | 'recruitment_language' | 'airline_and_role_understanding'
@@ -31,10 +32,11 @@ export type InterviewQuestion = {
 export type EvaluationScore = { key:string; score:number; status:'strong'|'adequate'|'needs_improvement'; feedback:string; tip:string }
 export type InterviewSpeakingMetrics = { wordsPerMinute:number; speakingPaceLabel:string; longSilenceCount:number; fillerCount:number; repeatedPhraseCount:number }
 export type RecommendedRetryMode = 'add_specific_experience'|'clarify_structure'|'shorten_answer'|'strengthen_role_connection'|'improve_safety_reasoning'|'improve_customer_empathy'|'repeat_current_structure'
-export type InterviewAnswerAnalysis = { overallScore:number; summary:string; strengths:string[]; improvements:string[]; evaluationScores:EvaluationScore[]; timingAnalysis:TimingAnalysis; speakingMetrics:InterviewSpeakingMetrics; recommendedRetryMode:RecommendedRetryMode; nextQuestionIds:string[] }
-export type InterviewAttempt = { id:string; questionId:string; category:InterviewCategory; createdAt:string; transcript:string; durationSeconds:number; audioId?:string; audioPath?:string; audioMetrics?:InterviewAudioMetrics;speechMetrics?:InterviewSpeechMetrics;pronunciationAnalysis?:PronunciationAnalysisResult;contentAnalysis?:InterviewContentAnalysis; analysis:InterviewAnswerAnalysis; targetAirlineId?:string; experienceId?:string; experienceSnapshot?:{title:string;category:ExperienceCategory;shortSummary:string}; attemptNumber:number; previousAttemptId?:string; isFollowUp?:boolean; parentAttemptId?:string; followUpReason?:string; followUpTemplateId?:string; completed:boolean }
+export type InterviewAnswerAnalysis = { overallScore:number; summary:string; strengths:string[]; improvements:string[]; evaluationScores:EvaluationScore[]; timingAnalysis:TimingAnalysis; speakingMetrics:InterviewSpeakingMetrics; recommendedRetryMode:RecommendedRetryMode; nextQuestionIds:string[]; transcriptIntegrity?:TranscriptIntegrity }
+export type TranscriptIntegrity={providerId?:string;mode:TranscriptionMode|'unknown';isActualTranscription:boolean}
+export type InterviewAttempt = { id:string; questionId:string; category:InterviewCategory; createdAt:string; transcript:string; transcriptIntegrity?:TranscriptIntegrity; durationSeconds:number; audioId?:string; audioPath?:string; audioMetrics?:InterviewAudioMetrics;speechMetrics?:InterviewSpeechMetrics;pronunciationAnalysis?:PronunciationAnalysisResult;contentAnalysis?:InterviewContentAnalysis; analysis:InterviewAnswerAnalysis; targetAirlineId?:string; experienceId?:string; experienceSnapshot?:{title:string;category:ExperienceCategory;shortSummary:string}; attemptNumber:number; previousAttemptId?:string; isFollowUp?:boolean; parentAttemptId?:string; followUpReason?:string; followUpTemplateId?:string; completed:boolean }
 export type QuestionProgress = { questionId:string; attemptCount:number; bestScore:number; latestScore:number; completed:boolean; lastPracticedAt?:string; improvementDelta?:number }
-export type InterviewPracticeConfig = { question:InterviewQuestion; attemptType:'first'|'retry'; previousAttemptId?:string; targetAirlineId?:string; selectedExperienceId?:string; sourceQueueItemId?:string; followUp?:{parentAttemptId:string;reason:string;templateId:string} }
+export type InterviewPracticeConfig = { question:InterviewQuestion; attemptType:'first'|'retry'; previousAttemptId?:string; targetAirlineId?:string; selectedExperienceId?:string; sourceQueueItemId?:string; languageHint?:'ko'|'en'; followUp?:{parentAttemptId:string;reason:string;templateId:string} }
 export type InterviewPracticeStep = 'intro'|'microphone_check'|'recording'|'review'|'analyzing'|'result'|'retry'
 
 const categoryMeta:Record<InterviewCategory,{capabilities:CapabilityKey[];rubric:string[];range:{minSeconds:number;maxSeconds:number}}>={
@@ -89,9 +91,39 @@ export function analyzeInterviewAnswer(question:InterviewQuestion,transcript:str
 function getEvaluationTip(key:string){const tips:Record<string,string>={structure:'첫 문장에 결론을 제시하고 근거를 이어 보세요.',specificity:'상황·행동·결과 중 빠진 요소를 추가하세요.',role_connection:'마지막 문장을 객실승무원 업무와 연결하세요.',empathy:'승객의 감정을 인정하는 표현을 먼저 사용하세요.',safety_priority:'안전 우선 원칙을 첫 문장에 제시하세요.',reporting:'누구에게 언제 보고할지 명시하세요.'};return tips[key]??'핵심 판단과 행동을 한 문장으로 명확히 표현해 보세요.'}
 
 const ATTEMPTS_KEY='cabin-interview-attempts-v1'; const PROGRESS_KEY='cabin-interview-progress-v1'
-export function loadInterviewAttempts():InterviewAttempt[]{if(typeof window==='undefined')return[];try{const value=JSON.parse(localStorage.getItem(ATTEMPTS_KEY)??'[]');return Array.isArray(value)?value:[]}catch{return[]}}
+export function normalizeInterviewAttempt(attempt:InterviewAttempt):InterviewAttempt{return{...attempt,transcriptIntegrity:attempt.transcriptIntegrity??attempt.analysis?.transcriptIntegrity??{mode:'unknown',isActualTranscription:false}}}
+export function loadInterviewAttempts():InterviewAttempt[]{if(typeof window==='undefined')return[];try{const value=JSON.parse(localStorage.getItem(ATTEMPTS_KEY)??'[]');return Array.isArray(value)?value.map(normalizeInterviewAttempt):[]}catch{return[]}}
 export function saveInterviewAttempt(attempt:InterviewAttempt){const list=loadInterviewAttempts();localStorage.setItem(ATTEMPTS_KEY,JSON.stringify([attempt,...list.filter(a=>a.id!==attempt.id)].slice(0,100)))}
 export function getQuestionProgress(questionId:string):QuestionProgress{const list=loadInterviewAttempts().filter(a=>a.questionId===questionId).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));const latest=list.at(-1);const previous=list.at(-2);return{questionId,attemptCount:list.length,bestScore:list.length?Math.max(...list.map(a=>a.analysis.overallScore)):0,latestScore:latest?.analysis.overallScore??0,completed:list.length>0,lastPracticedAt:latest?.createdAt,improvementDelta:latest&&previous?latest.analysis.overallScore-previous.analysis.overallScore:undefined}}
-export function getCompatibleInterviewHistory():InterviewAttempt[]{const native=loadInterviewAttempts();const legacy=loadSelfIntroductionAttempts().map(a=>({id:a.id,questionId:'im1',category:'introduction_and_motivation' as const,createdAt:a.createdAt,transcript:a.transcript,durationSeconds:a.durationSeconds,audioId:a.audioUrl,analysis:analyzeInterviewAnswer(interviewQuestionById.get('im1')!,a.transcript,a.durationSeconds),targetAirlineId:a.targetAirlineId,attemptNumber:a.attemptNumber,previousAttemptId:a.previousAttemptId,completed:a.completed}));return[...native,...legacy].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))}
+export function getCompatibleInterviewHistory():InterviewAttempt[]{
+  const native=loadInterviewAttempts()
+  const legacy=loadSelfIntroductionAttempts().map(a=>normalizeInterviewAttempt({
+    id:a.id,
+    questionId:'im1',
+    category:'introduction_and_motivation' as const,
+    createdAt:a.createdAt,
+    transcript:a.transcript,
+    durationSeconds:a.durationSeconds,
+    audioId:a.audioUrl,
+    analysis:{
+      overallScore:0,
+      summary:'기존 자기소개 기록입니다. 전사 출처를 확인할 수 없어 새로운 면접 분석을 생성하지 않습니다.',
+      strengths:[],
+      improvements:[],
+      evaluationScores:[],
+      timingAnalysis:a.analysis.timing,
+      speakingMetrics:{wordsPerMinute:0,speakingPaceLabel:'측정 불가',longSilenceCount:0,fillerCount:0,repeatedPhraseCount:0},
+      recommendedRetryMode:'repeat_current_structure' as const,
+      nextQuestionIds:[],
+      transcriptIntegrity:{mode:'unknown',isActualTranscription:false},
+    },
+    transcriptIntegrity:{mode:'unknown',isActualTranscription:false},
+    targetAirlineId:a.targetAirlineId,
+    attemptNumber:a.attemptNumber,
+    previousAttemptId:a.previousAttemptId,
+    completed:a.completed,
+  }))
+  return[...native,...legacy].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))
+}
 export function recordInterviewProgress(attempt:InterviewAttempt){if(typeof window==='undefined')return;try{const data=JSON.parse(localStorage.getItem(PROGRESS_KEY)??'{"dailyGains":{},"questionGains":{},"capabilityGains":{}}');const day=new Date().toISOString().slice(0,10);const dayGain=Number(data.dailyGains?.[day]??0);const questionGain=Number(data.questionGains?.[attempt.questionId]??0);const previous=attempt.previousAttemptId?loadInterviewAttempts().find(a=>a.id===attempt.previousAttemptId):undefined;const delta=questionGain===0?1:previous&&attempt.analysis.overallScore>=previous.analysis.overallScore+5&&questionGain<2?1:0;const applied=dayGain>=3?0:delta;data.dailyGains={...data.dailyGains,[day]:dayGain+applied};data.questionGains={...data.questionGains,[attempt.questionId]:questionGain+applied};data.capabilityGains=data.capabilityGains??{};for(const key of interviewQuestionById.get(attempt.questionId)?.targetCapabilities??[])data.capabilityGains[key]=Number(data.capabilityGains[key]??0)+applied;localStorage.setItem(PROGRESS_KEY,JSON.stringify(data))}catch{localStorage.removeItem(PROGRESS_KEY)}}
 export function loadInterviewCapabilityGains():Record<string,number>{if(typeof window==='undefined')return{};try{return JSON.parse(localStorage.getItem(PROGRESS_KEY)??'{}').capabilityGains??{}}catch{return{}}}

@@ -3,6 +3,7 @@ import type { SelfIntroductionChallengeAnalysis, SelfIntroductionChallengeSecond
 import type { InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
 import type { InterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
 import type { PronunciationAnalysisResult } from "@/lib/ai/pronunciation-provider";
+import type { TranscriptIntegrity } from "@/lib/interview-practice-data";
 
 export type TimingAssessment =
   | "too_brief_for_content"
@@ -20,6 +21,7 @@ export type TimingAnalysis = {
 };
 
 export type SelfIntroductionAnalysis = {
+  transcriptIntegrity?: TranscriptIntegrity;
   timing: TimingAnalysis;
   overall: string;
   bestPoint: string;
@@ -68,6 +70,7 @@ export type SelfIntroductionAttempt = {
   audioUrl?: string;
   audioPath?: string;
   transcript: string;
+  transcriptIntegrity?: TranscriptIntegrity;
   durationSeconds: number;
   analysis: SelfIntroductionAnalysis;
   targetAirlineId?: string;
@@ -327,9 +330,10 @@ export function formatDurationWords(seconds: number) {
 export function loadSelfIntroductionAttempts(): SelfIntroductionAttempt[] {
   if (typeof window === "undefined") return [];
   try {
-    return JSON.parse(
+    const attempts = JSON.parse(
       localStorage.getItem(ATTEMPTS_KEY) ?? "[]",
     ) as SelfIntroductionAttempt[];
+    return attempts.map((attempt) => ({...attempt, transcriptIntegrity: attempt.transcriptIntegrity ?? attempt.analysis?.transcriptIntegrity ?? {mode:"unknown", isActualTranscription:false}}));
   } catch {
     return [];
   }

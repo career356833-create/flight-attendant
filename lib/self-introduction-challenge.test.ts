@@ -35,10 +35,21 @@ test('retake compares timing, fillers, pauses and structure', () => {
   const previousChallenge = analyzeSelfIntroductionChallenge(60, 48, '저의 강점은 친절입니다.')
   const currentChallenge = analyzeSelfIntroductionChallenge(60, 58, '저의 강점은 고객 문제를 해결한 경험이며 객실승무원으로 기여하겠습니다.')
   const result = compareSelfIntroductionRetake(
-    { durationSeconds: 48, analysis: { metrics: { fillerCount: 3, longSilenceCount: 2 }, challenge: previousChallenge } },
-    { durationSeconds: 58, analysis: { metrics: { fillerCount: 1, longSilenceCount: 0 }, challenge: currentChallenge } },
+    { durationSeconds: 48, transcriptIntegrity: { mode: 'actual_audio', isActualTranscription: true }, analysis: { metrics: { fillerCount: 3, longSilenceCount: 2 }, challenge: previousChallenge } },
+    { durationSeconds: 58, transcriptIntegrity: { mode: 'actual_audio', isActualTranscription: true }, analysis: { metrics: { fillerCount: 1, longSilenceCount: 0 }, challenge: currentChallenge } },
   )
   assert.equal(result.timing, '48초 → 58초')
   assert.equal(result.filler, '3회 → 1회')
   assert.equal(result.pause, '2회 → 0회')
+})
+
+test('legacy retake never reports transcript-derived improvement', () => {
+  const challenge = analyzeSelfIntroductionChallenge(60, 50, '기존 기록')
+  const result = compareSelfIntroductionRetake(
+    { durationSeconds: 48, analysis: { metrics: { fillerCount: 5, longSilenceCount: 3 }, challenge } },
+    { durationSeconds: 50, analysis: { metrics: { fillerCount: 0, longSilenceCount: 0 }, challenge } },
+  )
+  assert.equal(result.filler, '측정 불가')
+  assert.equal(result.pause, '측정 불가')
+  assert.equal(result.structure, '측정 불가')
 })

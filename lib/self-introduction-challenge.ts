@@ -108,8 +108,8 @@ export function analyzeSelfIntroductionChallenge(
 }
 
 export function compareSelfIntroductionRetake(
-  previous: { durationSeconds: number; analysis: { metrics: { fillerCount: number; longSilenceCount: number }; challenge?: SelfIntroductionChallengeAnalysis } },
-  current: { durationSeconds: number; analysis: { metrics: { fillerCount: number; longSilenceCount: number }; challenge?: SelfIntroductionChallengeAnalysis } },
+  previous: { durationSeconds: number; transcriptIntegrity?: { mode: string; isActualTranscription: boolean }; analysis: { metrics: { fillerCount: number; longSilenceCount: number }; challenge?: SelfIntroductionChallengeAnalysis } },
+  current: { durationSeconds: number; transcriptIntegrity?: { mode: string; isActualTranscription: boolean }; analysis: { metrics: { fillerCount: number; longSilenceCount: number }; challenge?: SelfIntroductionChallengeAnalysis } },
 ): SelfIntroductionRetakeComparison {
   const label = (before: number, after: number, unit: string) => `${before}${unit} → ${after}${unit}`
   const previousPresent = previous.analysis.challenge
@@ -118,11 +118,15 @@ export function compareSelfIntroductionRetake(
   const currentPresent = current.analysis.challenge
     ? Object.values(current.analysis.challenge.structure).filter(value => value !== 'missing').length
     : 0
+  const transcriptComparable = previous.transcriptIntegrity?.mode === "actual_audio"
+    && previous.transcriptIntegrity.isActualTranscription
+    && current.transcriptIntegrity?.mode === "actual_audio"
+    && current.transcriptIntegrity.isActualTranscription
   return {
     timing: label(previous.durationSeconds, current.durationSeconds, '초'),
-    filler: label(previous.analysis.metrics.fillerCount, current.analysis.metrics.fillerCount, '회'),
-    pause: label(previous.analysis.metrics.longSilenceCount, current.analysis.metrics.longSilenceCount, '회'),
-    structure: label(previousPresent, currentPresent, '개 요소'),
+    filler: transcriptComparable ? label(previous.analysis.metrics.fillerCount, current.analysis.metrics.fillerCount, '회') : '측정 불가',
+    pause: transcriptComparable ? label(previous.analysis.metrics.longSilenceCount, current.analysis.metrics.longSilenceCount, '회') : '측정 불가',
+    structure: transcriptComparable ? label(previousPresent, currentPresent, '개 요소') : '측정 불가',
   }
 }
 

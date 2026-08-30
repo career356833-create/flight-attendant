@@ -30,6 +30,7 @@ import { analyzeSelfIntroductionChallenge, challengeTypeFor, type SelfIntroducti
 import { recommendExperiencesForSelfIntroduction } from "@/lib/experience-match-engine";
 import { createInterviewAudioMonitor, type InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
 import { buildInterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
+import { actualTranscript, transcriptionIntegrity, unavailableSelfIntroductionAnalysis } from "@/lib/ai/transcription-integrity";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -207,13 +208,13 @@ export function SelfIntroductionFlow({
       },
       { signal: controller.signal },
     );
-    const reviewedTranscript =
-      stt.ok && stt.data.transcript ? stt.data.transcript : transcript;
+    const integrity = transcriptionIntegrity(stt);
+    const reviewedTranscript = actualTranscript(stt);
     const audioMetrics = completedAudioMetrics.current ? {
       ...completedAudioMetrics.current,
       speech: {
         ...completedAudioMetrics.current.speech,
-        wordsPerMinute: reviewedTranscript.trim()
+        wordsPerMinute: integrity.isActualTranscription && reviewedTranscript
           ? Math.round(reviewedTranscript.trim().split(/\s+/).length / (Math.max(1, completedAudioMetrics.current.durationMs) / 60000))
           : null,
       },
@@ -224,37 +225,39 @@ export function SelfIntroductionFlow({
       audioMetrics,
       providerId: stt.providerId as "mock" | "browser_speech" | "server",
     });
-    const response = await aiService.analyzeSelfIntroduction(
+    const response = integrity.isActualTranscription ? await aiService.analyzeSelfIntroduction(
       { transcript: reviewedTranscript, durationSeconds: duration },
       { signal: controller.signal },
-    );
-    if (!response.ok) {
+    ) : null;
+    if (response && !response.ok) {
       if (response.error.code === "cancelled") return;
       throw new Error(response.error.code);
     }
-    const airlineAnalysis = analyzeSelfIntroductionWithAirlineContext(
+    const airlineAnalysis = integrity.isActualTranscription ? analyzeSelfIntroductionWithAirlineContext(
       reviewedTranscript,
       duration,
       selectedAirlineId,
       selectedExperience?.competencyTags as string[] | undefined,
-    );
+    ) : {airlineValueAlignment:undefined,experienceConnection:undefined,missingCompetencySuggestion:undefined};
+    const baseAnalysis = response?.ok ? response.data : unavailableSelfIntroductionAnalysis(duration);
     const next: SelfIntroductionAttempt = {
       id: `self-intro-${Date.now()}`,
       createdAt: new Date().toISOString(),
       transcript: reviewedTranscript,
+      transcriptIntegrity: integrity,
       durationSeconds: duration,
       analysis: {
-        ...response.data,
+        ...baseAnalysis,
         metrics: {
-          ...response.data.metrics,
+          ...baseAnalysis.metrics,
           fillerCount: speechMetrics.fillers.totalCount,
-          longSilenceCount: audioMetrics?.pauses.longCount ?? response.data.metrics.longSilenceCount,
+          longSilenceCount: audioMetrics?.pauses.longCount ?? baseAnalysis.metrics.longSilenceCount,
         },
         airlineValueAlignment: airlineAnalysis.airlineValueAlignment,
         experienceConnection: airlineAnalysis.experienceConnection,
         missingCompetencySuggestion:
           airlineAnalysis.missingCompetencySuggestion,
-        challenge: challengeTarget ? analyzeSelfIntroductionChallenge(challengeTarget, duration, reviewedTranscript) : undefined,
+        challenge: challengeTarget && integrity.isActualTranscription ? analyzeSelfIntroductionChallenge(challengeTarget, duration, reviewedTranscript) : undefined,
       },
       targetAirlineId: selectedAirlineId,
       experienceId: selectedExperience?.id,

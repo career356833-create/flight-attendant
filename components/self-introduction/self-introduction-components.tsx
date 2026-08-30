@@ -640,6 +640,13 @@ export function SelfIntroductionResult({
   onRetry: (mode: string) => void;
 }) {
   const a = attempt.analysis;
+  if (attempt.transcriptIntegrity && !attempt.transcriptIntegrity.isActualTranscription) return (
+    <DiagnosisFrame title="자기소개 녹음 결과" onBack={onHome} footer={<button className={primary} onClick={onHome}>홈으로 돌아가기</button>}>
+      <section className="rounded-3xl bg-navy p-5 text-ivory"><span className="text-xs font-bold text-gold">AUDIO ONLY</span><h2 className="mt-2 text-lg font-bold">녹음 완료 · {formatDurationWords(attempt.durationSeconds)}</h2><p className="mt-3 text-sm leading-relaxed">음성 전사 기능이 현재 연결되지 않아 자기소개 구조·필러·발화 속도 분석은 제공할 수 없습니다.</p></section>
+      {attempt.audioMetrics && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="font-bold text-navy">오디오 기반 지표</h2><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>평균 음량 <strong>{attempt.audioMetrics.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics.pauses.longCount}회</strong></p></div></section>}
+      <button className="mt-5 h-12 w-full rounded-xl bg-coral text-sm font-bold text-white" onClick={()=>onRetry('repeat')}>다시 연습하기</button>
+    </DiagnosisFrame>
+  );
   const previous = attempt.previousAttemptId ? history.find(item => item.id === attempt.previousAttemptId) : undefined;
   const comparison = previous && attempt.challengeType ? compareSelfIntroductionRetake(previous, attempt) : undefined;
   return (
