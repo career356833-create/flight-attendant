@@ -73,6 +73,68 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
+
+  .self-intro-setup-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .self-intro-recording-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+    gap: 1rem 1.5rem;
+    align-items: center;
+  }
+
+  .self-intro-recording-question,
+  .self-intro-waveform,
+  .self-intro-recording-actions {
+    margin-top: 0;
+  }
+
+  .self-intro-waveform,
+  .self-intro-recording-actions {
+    grid-column: 2;
+  }
+
+  .self-intro-result-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .self-intro-result-side {
+    position: sticky;
+    top: 1rem;
+  }
+
+  .mock-interview-report,
+  .responsive-app main.max-w-\[390px\].space-y-4 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .mock-interview-report > button:first-child,
+  .mock-interview-report > section:first-of-type,
+  .mock-interview-report > section:last-of-type,
+  .mock-interview-report > button:last-child,
+  .responsive-app main.max-w-\[390px\].space-y-4 > button:first-child,
+  .responsive-app main.max-w-\[390px\].space-y-4 > section:first-of-type,
+  .responsive-app main.max-w-\[390px\].space-y-4 > section:last-of-type,
+  .responsive-app main.max-w-\[390px\].space-y-4 > button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .application-coach-screen main > .grid,
+  .application-coach-screen main > .space-y-3,
+  .application-coach-screen main > .space-y-4 {
+    max-width: 1100px;
+    margin-inline: auto;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -90,6 +152,67 @@
 
   .responsive-app .mt-5.space-y-3:has(> article) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Application tracker: compact desktop rows while mobile keeps cards. */
+  .responsive-app [class*="min-h-full"] > .mt-5.space-y-3:has(> article) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+  }
+
+  .responsive-app [class*="min-h-full"] > .mt-5.space-y-3 > article {
+    display: grid;
+    grid-template-columns: minmax(190px, 1.1fr) minmax(220px, 0.9fr) minmax(280px, 1.2fr);
+    align-items: center;
+    gap: 1rem;
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .responsive-app [class*="min-h-full"] > .mt-5.space-y-3 > article > :is(div:nth-child(2), div:nth-child(3)) {
+    margin-top: 0;
+  }
+
+  .application-coach-screen main > .grid:has(textarea),
+  .application-coach-screen main > .space-y-4:has(textarea) {
+    max-width: 1280px;
+  }
+
+  .responsive-app article,
+  .responsive-app button,
+  .responsive-app [role="button"] {
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .responsive-app article:hover {
+    border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+    box-shadow: 0 12px 30px rgb(11 31 51 / 0.07);
+  }
+
+  /* Interview result: keep the detailed answer report readable while the
+     coaching and speech panels stay available in a dedicated rail. */
+  .responsive-app div:has(> .flex.h-full.flex-col.bg-background + section) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    align-items: start;
+    gap: 1rem;
+    width: 100%;
+    max-width: 1500px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  .responsive-app div:has(> .flex.h-full.flex-col.bg-background + section) > .flex.h-full.flex-col.bg-background {
+    grid-column: 1;
+    grid-row: 1 / span 12;
+    min-width: 0;
+  }
+
+  .responsive-app div:has(> .flex.h-full.flex-col.bg-background + section) > section {
+    grid-column: 2;
+    width: 100%;
+    max-width: none;
+    padding-inline: 0;
   }
 }
 

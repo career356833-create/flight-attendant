@@ -84,9 +84,9 @@ function Screen({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col bg-background">
-      <header className="border-b border-border bg-card px-5 pb-4 pt-6">
-        <div className="flex items-center gap-3">
+    <div className="application-coach-screen flex h-full flex-col bg-background">
+      <header className="border-b border-border bg-card px-5 pb-4 pt-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3">
           {onBack && (
             <button
               type="button"
@@ -108,10 +108,10 @@ function Screen({
           </div>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto px-5 pb-32 pt-5">{children}</main>
+      <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto px-5 pb-32 pt-5 lg:px-8 lg:pt-7">{children}</main>
       {footer && (
         <footer className="absolute inset-x-0 bottom-0 border-t border-border bg-card/95 p-4 pb-safe backdrop-blur">
-          {footer}
+          <div className="mx-auto w-full max-w-[960px]">{footer}</div>
         </footer>
       )}
     </div>

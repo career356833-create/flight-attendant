@@ -122,6 +122,7 @@ export function SelfIntroductionIntro({
         </div>
       }
     >
+      <div className="self-intro-setup-grid">
       <section className="rounded-3xl bg-navy p-6 text-ivory">
         <Mic className="h-7 w-7 text-gold" />
         <p className="mt-5 whitespace-pre-line text-xl font-bold leading-relaxed">
@@ -131,7 +132,7 @@ export function SelfIntroductionIntro({
           {challengeTarget ? `${challengeTarget}초를 목표로 답변 내용과 실제 소요시간을 함께 분석합니다.` : <>정해진 제한시간은 없어요.{`\n`}답변 내용과 실제 소요시간을 함께 분석합니다.</>}
         </p>
       </section>
-      <section className="mt-5 rounded-2xl border border-border bg-card p-4">
+      <section className="mt-5 rounded-2xl border border-border bg-card p-4 lg:mt-0">
         <span className="eyebrow text-gold">SELF INTRODUCTION CHALLENGE</span>
         <h2 className="mt-2 text-base font-bold text-navy">자기소개 챌린지</h2>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">실제 면접처럼 시간 안에 자신을 소개해보세요.</p>
@@ -143,6 +144,7 @@ export function SelfIntroductionIntro({
           ))}
         </div>
       </section>
+      </div>
       {airlineSection}
       {experienceSection}
       <section className="mt-6">
@@ -292,7 +294,8 @@ export function FreeResponseRecorder({
         </button>
       }
     >
-      <div aria-live="polite" className="text-center">
+      <div className="self-intro-recording-grid">
+      <div aria-live="polite" className="self-intro-recording-status text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-coral/10 px-4 py-2 text-xs font-bold text-coral">
           <span
             className={`h-2 w-2 rounded-full bg-coral ${paused ? "" : "animate-pulse"}`}
@@ -306,7 +309,7 @@ export function FreeResponseRecorder({
           {formatElapsed(elapsed)}{targetSeconds ? ` / ${formatElapsed(targetSeconds)}` : ''}
         </p>
       </div>
-      <div className={`${card} mt-7`}>
+      <div className={`${card} self-intro-recording-question mt-7`}>
         <span className="eyebrow text-gold">QUESTION</span>
         <p className="mt-3 whitespace-pre-line text-lg font-bold leading-relaxed text-navy">
           {question}
@@ -318,7 +321,7 @@ export function FreeResponseRecorder({
         )}
       </div>
       <div
-        className="mt-6 flex h-20 items-center justify-center gap-1 rounded-2xl bg-secondary/50"
+        className="self-intro-waveform mt-6 flex h-20 items-center justify-center gap-1 rounded-2xl bg-secondary/50"
         aria-label="오디오 입력 레벨"
       >
         {Array.from({ length: 18 }).map((_, i) => (
@@ -338,7 +341,7 @@ export function FreeResponseRecorder({
         <p className="mt-4 rounded-xl bg-gold/10 px-3 py-2 text-center text-xs font-semibold text-navy">목표 시간에 도달했어요. 답변은 실패 처리되지 않으며 준비되면 완료해 주세요.</p>
       )}
       {targetSeconds && <div className="mt-4 flex flex-wrap justify-center gap-2">{getSelfIntroductionChallengeGuide(targetSeconds).map(item=><span key={item} className="rounded-full bg-secondary px-3 py-1.5 text-[11px] text-midnight">{item}</span>)}</div>}
-      <div className="mt-7 grid grid-cols-2 gap-3">
+      <div className="self-intro-recording-actions mt-7 grid grid-cols-2 gap-3">
         <button className={secondary} onClick={onPause}>
           {paused ? (
             <Play className="mr-2 inline h-4 w-4" />
@@ -351,6 +354,7 @@ export function FreeResponseRecorder({
           <RefreshCcw className="mr-2 inline h-4 w-4" />
           다시 시작
         </button>
+      </div>
       </div>
     </DiagnosisFrame>
   );
@@ -648,6 +652,8 @@ export function SelfIntroductionResult({
         </button>
       }
     >
+      <div className="self-intro-result-grid">
+      <div className="self-intro-result-main">
       <section className="rounded-3xl bg-navy p-5 text-ivory">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -695,6 +701,8 @@ export function SelfIntroductionResult({
       <div className="mt-7">
         <SpeakingMetrics analysis={a} />
       </div>
+      </div>
+      <aside className="self-intro-result-side">
       {(attempt.audioMetrics || attempt.speechMetrics) && <section className="mt-7 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">말하기 분석</h2><p className="mt-1 text-xs text-muted-foreground">녹음 입력과 음성 인식 기반 참고 지표</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm text-midnight"><p>평균 음량 <strong>{attempt.audioMetrics?.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics?.pauses.longCount ?? 0}회</strong></p><p>필러 <strong>{attempt.speechMetrics?.fillers.totalCount ?? a.metrics.fillerCount}회</strong></p><p>발화 속도 <strong>{attempt.speechMetrics?.speechRate.estimatedWpm == null ? '측정 불가' : `${attempt.speechMetrics.speechRate.estimatedWpm} WPM`}</strong></p></div>{attempt.pronunciationAnalysis?.status === 'success' && <p className="mt-3 text-xs text-teal">정밀 발음 분석 결과가 연결되었습니다.</p>}</section>}
       <div className="mt-7">
         <ImprovementGuide analysis={a} />
@@ -707,6 +715,8 @@ export function SelfIntroductionResult({
           recommendation={a.retryRecommendation}
           onRetry={onRetry}
         />
+      </div>
+      </aside>
       </div>
       <div className="mt-7">
         <AttemptHistory attempts={history} />
