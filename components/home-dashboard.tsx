@@ -26,7 +26,7 @@ import { experienceRepository, type CareerExperience } from '@/lib/experience-re
 import { ApplicationCoach } from '@/components/application-coach'
 import { getApplicationCapabilityGains, listApplicationAnswers } from '@/lib/application-answer-repository'
 import { WeeklyReportHome } from '@/components/weekly-report'
-import { getCurrentReadinessSnapshot, getWeeklyLearningSummary, generateNextWeekPriorities } from '@/lib/learning-analytics-service'
+import { getCurrentReadinessSnapshot, getWeeklyLearningSummary, generateAdaptiveNextWeekPriorities as generateNextWeekPriorities } from '@/lib/learning-analytics-service'
 import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository'
 import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'

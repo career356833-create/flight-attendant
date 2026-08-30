@@ -5,7 +5,7 @@ import ko from '@/lib/locales/ko.json'
 import { cn } from '@/lib/utils'
 import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository'
 import { weekRange, type DateRange } from '@/lib/local-date-utils'
-import { analyzeExperiencePortfolio, buildLearningActivities, calculateCapabilityTrend, capabilityKeys, detectRepeatedWeaknesses, findBestPerformances, generateNextWeekPriorities, generateNextWeekRoutine, getActivitiesByDateRange, getCurrentReadinessSnapshot, getWeeklyLearningSummary, type CapabilityTrend, type ExperiencePortfolioInsight, type HighlightItem, type LearningActivity, type RepeatedWeakness, type TrainingPriority, type WeeklyLearningSummary, type WeeklyRoutineDay, type WeeklyRoutineTask } from '@/lib/learning-analytics-service'
+import { analyzeExperiencePortfolio, buildLearningActivities, calculateCapabilityTrend, capabilityKeys, detectLearningWeaknesses as detectRepeatedWeaknesses, findBestPerformances, generateAdaptiveNextWeekPriorities as generateNextWeekPriorities, generateNextWeekRoutine, getActivitiesByDateRange, getCurrentReadinessSnapshot, getWeeklyLearningSummary, type CapabilityTrend, type ExperiencePortfolioInsight, type HighlightItem, type LearningActivity, type RepeatedWeakness, type TrainingPriority, type WeeklyLearningSummary, type WeeklyRoutineDay, type WeeklyRoutineTask } from '@/lib/learning-analytics-service'
 import type { CapabilityKey } from '@/lib/interview-practice-data'
 
 const t=ko.weeklyReport,card='rounded-2xl border border-border bg-card p-4',capLabel=(key:CapabilityKey)=>t.capabilities[key]
