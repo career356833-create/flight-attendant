@@ -1,6 +1,6 @@
 import type { AiProviderConfig } from './types'
 export const AI_LIMITS={maxTextCharacters:12000,maxAudioSeconds:300,maxAudioBytes:20*1024*1024,supportedAudioMimeTypes:['audio/webm','audio/mp4','audio/mpeg','audio/wav'] as string[],cacheTtlMs:5*60*1000}
-export const DEFAULT_AI_CONFIG:AiProviderConfig={defaultAiProvider:'mock',defaultSttProvider:'mock',fallbackAiProvider:'mock',fallbackSttProvider:'mock',enableFallback:true,timeoutMs:30000,retryCount:1,taskOverrides:{}}
+export const DEFAULT_AI_CONFIG:AiProviderConfig={defaultAiProvider:'mock',defaultSttProvider:'server',fallbackAiProvider:'mock',fallbackSttProvider:'mock',enableFallback:true,timeoutMs:60000,retryCount:1,taskOverrides:{}}
 const KEY='cabin-ai-provider-config-v1'
 export function loadAiConfig():AiProviderConfig{if(typeof window==='undefined')return DEFAULT_AI_CONFIG;try{return{...DEFAULT_AI_CONFIG,...JSON.parse(localStorage.getItem(KEY)??'{}')}}catch{return DEFAULT_AI_CONFIG}}
 export function saveAiConfig(config:AiProviderConfig){if(typeof window!=='undefined')localStorage.setItem(KEY,JSON.stringify(config));return config}
