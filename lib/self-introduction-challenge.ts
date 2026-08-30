@@ -1,3 +1,5 @@
+import { evaluateAnswerQuality, type AnswerQualityRubric } from './answer-quality-rubric'
+
 export type SelfIntroductionChallengeSeconds = 30 | 60 | 90
 export type SelfIntroductionChallengeType = `self_intro_${SelfIntroductionChallengeSeconds}`
 export type SelfIntroductionTimingStatus = 'short' | 'close' | 'long'
@@ -25,6 +27,7 @@ export type SelfIntroductionChallengeAnalysis = {
   structure: SelfIntroductionStructureAnalysis
   timing: SelfIntroDurationAnalysis
   nextPractice: string[]
+  rubric?: AnswerQualityRubric
 }
 
 export type SelfIntroductionRetakeComparison = {
@@ -84,6 +87,7 @@ export function analyzeSelfIntroductionChallenge(
 ): SelfIntroductionChallengeAnalysis {
   const timing = analyzeSelfIntroductionDuration(targetSeconds, actualSeconds)
   const structure = analyzeSelfIntroductionStructure(transcript)
+  const rubric = evaluateAnswerQuality({ answer: transcript, provenance: 'typed_answer', context: 'self_introduction' })
   const labels: Record<keyof SelfIntroductionStructureAnalysis, string> = {
     opening: '소개', strength: '강점', experience: '경험', motivation: '지원 연결',
   }
@@ -104,6 +108,7 @@ export function analyzeSelfIntroductionChallenge(
     nextPractice: improvements.slice(0, 2).concat(
       timing.status === 'close' ? [] : [timing.feedback],
     ),
+    rubric,
   }
 }
 

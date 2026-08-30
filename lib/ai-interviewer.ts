@@ -23,6 +23,7 @@ const contentOf=(attempt:InterviewAttempt):InterviewContentAnalysis|undefined=>a
 const reasonCandidates=(question:InterviewQuestion,attempt:InterviewAttempt,hasPublishedAirlineContext=false):FollowUpReason[]=>{
   const content=contentOf(attempt),missing=content?.structure.missingParts??[],generic=content?.answerQuality.genericClaims.length??0
   const reasons:FollowUpReason[]=[]
+  if(content?.rubric?.evaluated)reasons.push(...content.rubric.followUpCandidates)
   if(question.category==='safety_and_role_judgment'&&(missing.includes('Judgment')||missing.includes('Communication')))reasons.push('safety_priority_unclear')
   if(missing.includes('Action'))reasons.push('missing_action')
   if(missing.includes('Result')||missing.includes('Closing'))reasons.push('missing_result')
@@ -31,7 +32,7 @@ const reasonCandidates=(question:InterviewQuestion,attempt:InterviewAttempt,hasP
   if(generic>0)reasons.push('generic_claim')
   if(content?.competencies.some(item=>item.strength==='missing'))reasons.push('missing_competency')
   if(attempt.transcript.trim()&&attempt.durationSeconds>=3&&attempt.durationSeconds<12)reasons.push('answer_too_short')
-  return reasons
+  return [...new Set(reasons)]
 }
 
 export function decideAiInterviewerFollowUp(input:{question:InterviewQuestion;attempt:InterviewAttempt;session:InterviewSession;priorFollowUps:InterviewAttempt[];language?:'ko'|'en';hasPublishedAirlineContext?:boolean}):FollowUpDecision{

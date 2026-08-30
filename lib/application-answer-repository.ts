@@ -11,6 +11,7 @@ import {
   recommendExperiencesForApplication,
 } from "@/lib/experience-match-engine";
 import type { CapabilityKey } from "@/lib/interview-practice-data";
+import { evaluateAnswerQuality, type AnswerQualityRubric } from "@/lib/answer-quality-rubric";
 
 export type ApplicationDocumentType =
   | "application_question"
@@ -92,6 +93,7 @@ export type ApplicationAnswerAnalysis = {
   experienceConnection?: string;
   genericExpressionWarning?: string;
   missingCompetency?: string[];
+  rubric?: AnswerQualityRubric;
   analyzedAt: string;
 };
 export type ApplicationAirlineContext = {
@@ -747,7 +749,8 @@ export function analyzeApplicationAnswer(
     hasAction = /행동|확인|조정|제안|해결|협력|설명/.test(content),
     hasResult = /결과|개선|배웠|확인했|성과/.test(content),
     hasRole = /객실승무원|고객|안전|서비스/.test(content),
-    context = !!getVerifiedAirlineContext(airlineId),
+    verifiedContext = getVerifiedAirlineContext(airlineId),
+    context = !!verifiedContext,
     within =
       (!prompt.characterLimit || content.length <= prompt.characterLimit) &&
       (!prompt.wordLimit || content.split(/\s+/).length <= prompt.wordLimit);
@@ -836,6 +839,15 @@ export function analyzeApplicationAnswer(
     suggestion,
   }));
   const sorted = [...evaluations].sort((a, b) => a.score - b.score);
+  const rubric = evaluateAnswerQuality({
+    answer: content,
+    provenance: "typed_answer",
+    context: "application",
+    questionPrompt: prompt.prompt,
+    publishedAirlineContext: verifiedContext ? {
+      values: [verifiedContext.airlineName, verifiedContext.servicePhilosophy, ...verifiedContext.coreValues].filter((value): value is string => Boolean(value)),
+    } : undefined,
+  });
   return {
     overallCompleteness: Math.round(
       evaluations.reduce((s, e) => s + e.score, 0) / evaluations.length,
@@ -843,6 +855,7 @@ export function analyzeApplicationAnswer(
     strongestPoint: [...sorted].reverse()[0].label,
     firstImprovement: sorted[0].label,
     evaluations,
+    rubric,
     airlineContextLimited: !context,
     analyzedAt: now(),
   };
