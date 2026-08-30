@@ -47,6 +47,7 @@ test('legacy provider settings migrate mock STT only once in production',()=>{
   assert.equal(normalizeStoredAiConfig({defaultSttProvider:'mock'},true).defaultSttProvider,'server')
   assert.equal(normalizeStoredAiConfig({defaultSttProvider:'mock',actualSttV1:true},true).defaultSttProvider,'mock')
   assert.equal(normalizeStoredAiConfig({defaultSttProvider:'mock'},false).defaultSttProvider,'mock')
+  assert.equal(normalizeStoredAiConfig({defaultSttProvider:'server',actualSttV1:true},true).defaultSttProvider,'server')
 })
 
 test('approved consent sends exactly one server request and preserves actual provenance',async()=>{
