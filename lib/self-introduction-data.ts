@@ -3,6 +3,7 @@ import type { SelfIntroductionChallengeAnalysis, SelfIntroductionChallengeSecond
 import type { InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
 import type { InterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
 import type { PronunciationAnalysisResult } from "@/lib/ai/pronunciation-provider";
+import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import type { TranscriptIntegrity } from "@/lib/interview-practice-data";
 
 export type TimingAssessment =
@@ -84,6 +85,7 @@ export type SelfIntroductionAttempt = {
   audioMetrics?: InterviewAudioMetrics;
   speechMetrics?: InterviewSpeechMetrics;
   pronunciationAnalysis?: PronunciationAnalysisResult;
+  practiceLanguage?: SelfIntroductionLanguage;
 };
 
 export type SelfIntroductionProgress = {

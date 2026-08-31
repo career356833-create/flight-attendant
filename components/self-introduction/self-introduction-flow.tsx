@@ -31,6 +31,8 @@ import { recommendExperiencesForSelfIntroduction } from "@/lib/experience-match-
 import { createInterviewAudioMonitor, type InterviewAudioMetrics } from "@/lib/interview-audio/audio-analysis";
 import { buildInterviewSpeechMetrics } from "@/lib/interview-audio/speech-analysis";
 import { actualTranscript, transcriptionIntegrity, unavailableSelfIntroductionAnalysis } from "@/lib/ai/transcription-integrity";
+import { runPronunciationAnalysis } from "@/lib/ai/pronunciation-flow";
+import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfIntroductionPrompt, type SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -66,6 +68,7 @@ export function SelfIntroductionFlow({
   const [attempt, setAttempt] = useState<SelfIntroductionAttempt | null>(null);
   const [previousAttemptId, setPreviousAttemptId] = useState<string>();
   const [challengeTarget, setChallengeTarget] = useState<SelfIntroductionChallengeSeconds | undefined>(initialChallengeTarget);
+  const [practiceLanguage, setPracticeLanguage] = useState<SelfIntroductionLanguage>(DEFAULT_SELF_INTRODUCTION_LANGUAGE);
   const chunks = useRef<Blob[]>([]);
   const aiRequest = useRef<AbortController | null>(null);
   const audioMonitor = useRef<ReturnType<typeof createInterviewAudioMonitor> | null>(null);
@@ -203,7 +206,7 @@ export function SelfIntroductionFlow({
         audioBlob: blob ?? undefined,
         mimeType: blob?.type,
         durationSeconds: duration,
-        languageHint: "ko",
+        languageHint: selfIntroductionLanguageHint(practiceLanguage),
         fallbackTranscript: transcript,
       },
       { signal: controller.signal },
@@ -225,6 +228,14 @@ export function SelfIntroductionFlow({
       audioMetrics,
       providerId: stt.providerId as "mock" | "browser_speech" | "server",
     });
+    const pronunciationAnalysis = integrity.isActualTranscription ? await runPronunciationAnalysis({
+      blob,
+      transcript: reviewedTranscript,
+      language: speechMetrics.language === "en" ? "en-US" : speechMetrics.language,
+      audioMetrics,
+      signal: controller.signal,
+      confirm: () => window.confirm("정밀 발음 분석을 사용하면 이 영어 답변의 녹음 음성이 외부 음성 처리 서비스로 일시 전송됩니다. 영구 원격 저장과는 별도입니다. 계속할까요?"),
+    }).catch(() => ({provider:"none" as const,status:"failed" as const,language:speechMetrics.language})) : undefined;
     const response = integrity.isActualTranscription ? await aiService.analyzeSelfIntroduction(
       { transcript: reviewedTranscript, durationSeconds: duration },
       { signal: controller.signal },
@@ -274,6 +285,8 @@ export function SelfIntroductionFlow({
       targetSeconds: challengeTarget,
       audioMetrics,
       speechMetrics,
+      pronunciationAnalysis,
+      practiceLanguage,
     };
     saveSelfIntroductionAttempt(next);
     if (blob) await saveAttemptAudio(next.id, blob);
@@ -291,6 +304,7 @@ export function SelfIntroductionFlow({
     selectedAirlineId,
     transcript,
     challengeTarget,
+    practiceLanguage,
   ]);
 
   function retry(mode?: string) {
@@ -311,6 +325,8 @@ export function SelfIntroductionFlow({
       <SelfIntroductionIntro
         challengeTarget={challengeTarget}
         onChallengeTarget={setChallengeTarget}
+        practiceLanguage={practiceLanguage}
+        onPracticeLanguage={setPracticeLanguage}
         airlineSection={
           <div className="mt-5">
             <label
@@ -388,6 +404,7 @@ export function SelfIntroductionFlow({
         onRestart={restartRecording}
         onBack={leaveRecording}
         targetSeconds={challengeTarget}
+        question={selfIntroductionPrompt(practiceLanguage)}
       />
     );
   if (step === "review")

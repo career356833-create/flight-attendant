@@ -20,6 +20,7 @@ import {
   type SelfIntroductionAttempt,
 } from "@/lib/self-introduction-data";
 import { compareSelfIntroductionRetake, getSelfIntroductionChallengeGuide, SELF_INTRO_CHALLENGE_OPTIONS, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
+import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 
 const primary =
   "h-14 w-full rounded-2xl bg-navy px-5 font-semibold text-ivory transition active:scale-[.98] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
@@ -88,6 +89,8 @@ export function SelfIntroductionIntro({
   experienceSection,
   challengeTarget,
   onChallengeTarget,
+  practiceLanguage,
+  onPracticeLanguage,
 }: {
   onStart: () => void;
   onLater: () => void;
@@ -95,6 +98,8 @@ export function SelfIntroductionIntro({
   experienceSection?: React.ReactNode;
   challengeTarget?: SelfIntroductionChallengeSeconds;
   onChallengeTarget: (seconds?: SelfIntroductionChallengeSeconds) => void;
+  practiceLanguage: SelfIntroductionLanguage;
+  onPracticeLanguage: (language: SelfIntroductionLanguage) => void;
 }) {
   const items = [
     "핵심 메시지",
@@ -145,6 +150,13 @@ export function SelfIntroductionIntro({
         </div>
       </section>
       </div>
+      <section className="mt-5 rounded-2xl border border-border bg-card p-4">
+        <h2 className="text-sm font-bold text-navy">연습 언어</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {([['ko','한국어'],['en','English']] as const).map(([value,label])=><button key={value} type="button" aria-pressed={practiceLanguage===value} onClick={()=>onPracticeLanguage(value)} className={`h-11 rounded-xl border text-sm font-bold ${practiceLanguage===value?'border-navy bg-navy text-ivory':'border-border bg-background text-navy'}`}>{label}</button>)}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">영어를 직접 선택한 경우에만 영어 음성 전사와 발음 분석을 시도합니다.</p>
+      </section>
       {airlineSection}
       {experienceSection}
       <section className="mt-6">
@@ -710,7 +722,7 @@ export function SelfIntroductionResult({
       </div>
       </div>
       <aside className="self-intro-result-side">
-      {(attempt.audioMetrics || attempt.speechMetrics) && <section className="mt-7 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">말하기 분석</h2><p className="mt-1 text-xs text-muted-foreground">녹음 입력과 음성 인식 기반 참고 지표</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm text-midnight"><p>평균 음량 <strong>{attempt.audioMetrics?.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics?.pauses.longCount ?? 0}회</strong></p><p>필러 <strong>{attempt.speechMetrics?.fillers.totalCount ?? a.metrics.fillerCount}회</strong></p><p>발화 속도 <strong>{attempt.speechMetrics?.speechRate.estimatedWpm == null ? '측정 불가' : `${attempt.speechMetrics.speechRate.estimatedWpm} WPM`}</strong></p></div>{attempt.pronunciationAnalysis?.status === 'success' && <p className="mt-3 text-xs text-teal">정밀 발음 분석 결과가 연결되었습니다.</p>}</section>}
+      {(attempt.audioMetrics || attempt.speechMetrics) && <section className="mt-7 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">말하기 분석</h2><p className="mt-1 text-xs text-muted-foreground">녹음 입력과 음성 인식 기반 참고 지표</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm text-midnight"><p>평균 음량 <strong>{attempt.audioMetrics?.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics?.pauses.longCount ?? 0}회</strong></p><p>필러 <strong>{attempt.speechMetrics?.fillers.totalCount ?? a.metrics.fillerCount}회</strong></p><p>발화 속도 <strong>{attempt.speechMetrics?.speechRate.estimatedWpm == null ? '측정 불가' : `${attempt.speechMetrics.speechRate.estimatedWpm} WPM`}</strong></p></div>{attempt.pronunciationAnalysis?.status === 'success' && <div className="mt-4 border-t border-border pt-4"><h3 className="text-sm font-bold text-navy">영어 발음 분석</h3><div className="mt-2 grid grid-cols-2 gap-2 text-xs text-midnight"><p>발음 정확도 <strong>{attempt.pronunciationAnalysis.overall?.pronunciationScore??'제공 안 됨'}</strong></p><p>유창성 <strong>{attempt.pronunciationAnalysis.overall?.fluencyScore??'제공 안 됨'}</strong></p>{attempt.pronunciationAnalysis.overall?.prosodyScore!==undefined&&<p>운율 <strong>{attempt.pronunciationAnalysis.overall.prosodyScore}</strong></p>}</div>{attempt.pronunciationAnalysis.words?.some(word=>word.status==='review'||(word.accuracyScore!==undefined&&word.accuracyScore<75))&&<p className="mt-3 text-xs text-muted-foreground">다시 연습할 단어: {attempt.pronunciationAnalysis.words.filter(word=>word.status==='review'||(word.accuracyScore!==undefined&&word.accuracyScore<75)).slice(0,6).map(word=>word.word).join(', ')}</p>}</div>}</section>}
       <div className="mt-7">
         <ImprovementGuide analysis={a} />
       </div>
