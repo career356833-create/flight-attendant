@@ -51,6 +51,12 @@ import {
   type StructureBlock,
 } from "@/lib/application-answer-repository";
 import { cn } from "@/lib/utils";
+import {
+  selectApplicationInterviewDrills,
+  type ApplicationInterviewDrillCandidate,
+} from "@/lib/application-interview-drill";
+import { loadInterviewAttempts } from "@/lib/interview-practice-data";
+import { interviewPracticeQueueRepository } from "@/lib/interview-practice-queue";
 
 const t = ko.applicationCoach;
 const documentTypes = Object.keys(t.documents) as ApplicationDocumentType[];
@@ -1146,17 +1152,23 @@ export function ApplicationAnswerDetail({
   onBack: () => void;
   onVersions: () => void;
   onConvert: () => void;
-  onPractice: (keywords: string[]) => void;
+  onPractice: (candidate: ApplicationInterviewDrillCandidate) => void;
 }) {
   const version = listAnswerVersions(answer.id).find(
     (v) => v.id === answer.currentVersionId,
   );
-  const keywords = [
-      answer.title,
-      ...answer.experienceSnapshots
-        .flatMap((e) => [e.title, e.result])
-        .filter(Boolean),
-    ].slice(0, 4),
+  const drills = selectApplicationInterviewDrills({
+      answer,
+      version,
+      recentQuestionIds: loadInterviewAttempts()
+        .filter((attempt) => attempt.completed)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 5)
+        .map((attempt) => attempt.questionId),
+      openQuestionIds: interviewPracticeQueueRepository
+        .listOpen()
+        .map((item) => item.questionId),
+    }),
     airlineName =
       answer.sourceContextSnapshot?.airlineName ??
       (answer.airlineId
@@ -1185,6 +1197,40 @@ export function ApplicationAnswerDetail({
           <p className="mt-2 text-sm text-muted-foreground">연결된 경험 없음</p>
         )}
       </section>
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="font-bold text-navy">지원서 약점 면접 Drill</h2>
+        {drills.length ? (
+          <div className="mt-3 space-y-3">
+            {drills.map((candidate) => (
+              <article
+                key={candidate.questionId}
+                className="rounded-2xl bg-secondary/60 p-4"
+              >
+                <span className="text-xs font-bold text-gold">
+                  {candidate.priority === "primary" ? "PRIMARY" : "SECONDARY"}
+                </span>
+                <h3 className="mt-1 text-sm font-bold text-navy">
+                  {candidate.question.shortTitle}
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {candidate.recommendationExplanation}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onPractice(candidate)}
+                  className="mt-3 h-11 w-full rounded-xl bg-navy px-4 text-sm font-semibold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                >
+                  면접으로 연습하기
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            현재 답변에서는 우선 보완할 면접 Drill이 없습니다.
+          </p>
+        )}
+      </section>
       <div className="mt-4 space-y-2">
         <button
           type="button"
@@ -1200,13 +1246,6 @@ export function ApplicationAnswerDetail({
         >
           {t.otherAirline}
         </button>
-        <button
-          type="button"
-          onClick={() => onPractice(keywords)}
-          className="h-11 w-full rounded-xl bg-navy font-semibold text-ivory"
-        >
-          {t.speakingPractice}
-        </button>
       </div>
     </Screen>
   );
@@ -1221,12 +1260,7 @@ export function ApplicationCoach({
   onExit: () => void;
   onOpenExperience: () => void;
   onPractice: (
-    category:
-      | "introduction_and_motivation"
-      | "behavioral_experience"
-      | "customer_situation"
-      | "safety_and_role_judgment",
-    keywords: string[],
+    candidate: ApplicationInterviewDrillCandidate,
   ) => void;
   initialAirlineId?: string;
 }) {
@@ -1314,18 +1348,6 @@ export function ApplicationCoach({
     setCurrent(answer);
     setSaved(listApplicationAnswers());
     setStep("detail");
-  }
-  function practice(answer: ApplicationAnswer, keywords: string[]) {
-    const category =
-      answer.promptId.includes("motivation") ||
-      answer.promptId.includes("strength")
-        ? "introduction_and_motivation"
-        : answer.promptId.includes("customer")
-          ? "customer_situation"
-          : answer.promptId.includes("safety")
-            ? "safety_and_role_judgment"
-            : "behavioral_experience";
-    onPractice(category, keywords);
   }
   if (step === "home")
     return (
@@ -1473,7 +1495,7 @@ export function ApplicationCoach({
         onBack={() => setStep("home")}
         onVersions={() => setStep("versions")}
         onConvert={() => setStep("convert")}
-        onPractice={(keywords) => practice(current, keywords)}
+        onPractice={onPractice}
       />
     );
   return (
