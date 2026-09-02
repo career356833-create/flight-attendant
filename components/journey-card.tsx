@@ -1,16 +1,15 @@
 'use client'
 
 import { Plane, Target } from 'lucide-react'
-import { journey } from '@/lib/mock-data'
 
 type JourneyCardProps = {
   onStartTraining?: () => void
-  target?: string
-  score?: number
+  target: string
+  score: number
   nextGoal?: string
 }
 
-export function JourneyCard({ onStartTraining, target = journey.target, score = journey.score, nextGoal = journey.nextGoal }: JourneyCardProps) {
+export function JourneyCard({ onStartTraining, target, score, nextGoal = '오늘의 훈련 완료' }: JourneyCardProps) {
   return (
     <article className="relative overflow-hidden rounded-3xl bg-navy p-6 text-ivory shadow-[0_24px_60px_-28px_rgba(11,31,51,0.7)]">
       {/* Subtle route-line background detail */}
@@ -43,11 +42,11 @@ export function JourneyCard({ onStartTraining, target = journey.target, score = 
 
       <div className="relative flex flex-col gap-5">
         <div className="flex items-center justify-between">
-          <span className="eyebrow text-gold">{journey.label}</span>
+          <span className="eyebrow text-gold">MY JOURNEY</span>
           <span className="flex items-center gap-1.5 text-xs font-medium text-ivory/60">
-            {journey.route.from}
+            START
             <Plane className="h-3.5 w-3.5 rotate-45 text-ivory/70" strokeWidth={2} />
-            {journey.route.to}
+            GOAL
           </span>
         </div>
 
@@ -88,7 +87,7 @@ export function JourneyCard({ onStartTraining, target = journey.target, score = 
           onClick={onStartTraining}
           className="flex h-12 items-center justify-center rounded-2xl bg-coral text-[0.95rem] font-semibold text-white transition-all duration-200 hover:brightness-105 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
         >
-          {journey.cta}
+          오늘 훈련 시작
         </button>
       </div>
     </article>

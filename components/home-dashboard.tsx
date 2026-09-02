@@ -12,7 +12,6 @@ import { SecondaryStats } from '@/components/secondary-stats'
 import { BottomNavigation, DesktopNavigation } from '@/components/bottom-navigation'
 import { Lightbulb } from 'lucide-react'
 import { onboardingKo } from '@/lib/onboarding-i18n'
-import { dailyRoute, readiness, type RoutineTask, type TaskStatus } from '@/lib/mock-data'
 import type { DiagnosisResult, OnboardingAnswers } from '@/lib/onboarding-data'
 import { SelfIntroductionFlow } from '@/components/self-introduction'
 import { loadSelfIntroductionProgress, SELF_INTRO_TASK_ID, type SelfIntroductionAttempt, type SelfIntroductionProgress } from '@/lib/self-introduction-data'
@@ -20,13 +19,13 @@ import { InterviewPracticeEngine, InterviewPracticeHome, InterviewPracticeQueueP
 import { MockInterviewFollowUp, MockInterviewLauncher, MockInterviewProgress, MockInterviewReport, MockInterviewSessionHistory } from '@/components/interview-practice/mock-interview-session'
 import { analyzeInterviewSession, completeInterviewSessionAttempt, createInterviewSession, followUpForAttempt, loadInterviewSessions, saveInterviewSession, type InterviewSession } from '@/lib/mock-interview-session'
 import { buildFollowUpQuestion, decideAiInterviewerFollowUp } from '@/lib/ai-interviewer'
-import { interviewQuestionById, loadInterviewAttempts, loadInterviewCapabilityGains, saveInterviewAttempt, type InterviewAttempt, type InterviewCategory, type InterviewPracticeConfig, type InterviewQuestion } from '@/lib/interview-practice-data'
+import { interviewQuestionById, loadInterviewAttempts, saveInterviewAttempt, type InterviewAttempt, type InterviewCategory, type InterviewPracticeConfig, type InterviewQuestion } from '@/lib/interview-practice-data'
 import { ExperienceLibrary } from '@/components/experience-library'
 import { experienceRepository, type CareerExperience } from '@/lib/experience-repository'
 import { ApplicationCoach } from '@/components/application-coach'
-import { getApplicationCapabilityGains, listApplicationAnswers } from '@/lib/application-answer-repository'
+import { listApplicationAnswers } from '@/lib/application-answer-repository'
 import { WeeklyReportHome } from '@/components/weekly-report'
-import { getCurrentReadinessSnapshot, getWeeklyLearningSummary, generateAdaptiveNextWeekPriorities as generateNextWeekPriorities, type WeeklyRoutineTask } from '@/lib/learning-analytics-service'
+import { buildLearningActivities, getCurrentReadinessSnapshot, getWeeklyLearningSummary, type WeeklyRoutineTask } from '@/lib/learning-analytics-service'
 import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository'
 import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'
@@ -47,6 +46,7 @@ import type { InterviewPracticeSourceContext } from '@/lib/interview-practice-da
 import { detectAdaptiveWeaknesses, recommendQuestionForWeakness } from '@/lib/learning-analytics-adaptive'
 import { localDateKey } from '@/lib/local-date-utils'
 import { buildDailyActionPlan, weeklyTaskToDailyAction, type DailyActionCandidate, type DailyCompletionEvent } from '@/lib/daily-action-plan'
+import { buildHomeRealState, type HomeRoutineTask as RoutineTask, type HomeRoutineTaskStatus as TaskStatus } from '@/lib/home-real-state'
 
 function DailyActionCard({action,primary=false,onStart}:{action:DailyActionCandidate;primary?:boolean;onStart:()=>void}){
   return <article className={primary?'rounded-3xl bg-navy p-6 text-ivory shadow-sm':'rounded-2xl border border-border bg-card p-4'}>
@@ -75,23 +75,18 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const [interviewSessions,setInterviewSessions]=useState<InterviewSession[]>([])
   const [sessionHistoryReady,setSessionHistoryReady]=useState(false)
   const [sessionHistoryAvailable,setSessionHistoryAvailable]=useState(true)
-  const [capabilityGains,setCapabilityGains]=useState<Record<string,number>>({})
   const [trainingProgress,setTrainingProgress]=useState<SelfIntroductionProgress>({routineCompleted:false,interviewScoreGain:0,scoreHistory:[]})
   const [usageRevision,setUsageRevision]=useState(0)
   const [experienceRevision,setExperienceRevision]=useState(0)
-  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());setCapabilityGains({...loadInterviewCapabilityGains(),...getApplicationCapabilityGains()});const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true);const usageChanged=()=>setUsageRevision(v=>v+1);const experienceChanged=()=>setExperienceRevision(v=>v+1);window.addEventListener('cabin:training-sync-changed',usageChanged);window.addEventListener('cabin:application-local-changed',usageChanged);window.addEventListener('cabin:application-sync-changed',usageChanged);window.addEventListener('cabin:experience-sync-changed',experienceChanged);window.addEventListener(interviewPracticeQueueRepository.eventName,usageChanged);return()=>{window.removeEventListener('cabin:training-sync-changed',usageChanged);window.removeEventListener('cabin:application-local-changed',usageChanged);window.removeEventListener('cabin:application-sync-changed',usageChanged);window.removeEventListener('cabin:experience-sync-changed',experienceChanged);window.removeEventListener(interviewPracticeQueueRepository.eventName,usageChanged)}},[])
+  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true);const usageChanged=()=>setUsageRevision(v=>v+1);const experienceChanged=()=>setExperienceRevision(v=>v+1);window.addEventListener('cabin:training-sync-changed',usageChanged);window.addEventListener('cabin:application-local-changed',usageChanged);window.addEventListener('cabin:application-sync-changed',usageChanged);window.addEventListener('cabin:experience-sync-changed',experienceChanged);window.addEventListener(interviewPracticeQueueRepository.eventName,usageChanged);return()=>{window.removeEventListener('cabin:training-sync-changed',usageChanged);window.removeEventListener('cabin:application-local-changed',usageChanged);window.removeEventListener('cabin:application-sync-changed',usageChanged);window.removeEventListener('cabin:experience-sync-changed',experienceChanged);window.removeEventListener(interviewPracticeQueueRepository.eventName,usageChanged)}},[])
   useEffect(()=>{let active=true;const load=()=>void authService.currentUser().then(user=>getAirlineApplicationRepository(user).list()).then(items=>{if(active)setTrackedApplications(items)}).catch(()=>{});load();window.addEventListener('cabin:application-local-changed',load);window.addEventListener('cabin:application-sync-changed',load);return()=>{active=false;window.removeEventListener('cabin:application-local-changed',load);window.removeEventListener('cabin:application-sync-changed',load)}},[])
-  const baseTasks: RoutineTask[] = diagnosis ? diagnosis.starterPlan.slice(0, diagnosis.routineTaskCount).map((item, index) => ({ id: `personal-${item.day}`, step: index + 2, name: item.title, minutes: diagnosis.routineMinutesPerTask, status: 'todo' })) : [...dailyRoute.tasks].map((task,index)=>({...task,step:index+2}))
+  const baseTasks: RoutineTask[] = diagnosis ? diagnosis.starterPlan.slice(0, diagnosis.routineTaskCount).map((item, index) => ({ id: `personal-${item.day}`, step: index + 2, name: item.title, minutes: diagnosis.routineMinutesPerTask, status: 'todo' })) : []
   const interviewRoutineDone=interviewAttempts.some(a=>a.questionId==='im2')
   const applicationRoutineDone=listApplicationAnswers().some(a=>a.status==='reviewed'||a.status==='ready')
-  const personalizedTasks: RoutineTask[] = [{id:SELF_INTRO_TASK_ID,step:1,name:'자기소개 실전 진단',description:'평소 면접처럼 자유롭게 답변하고, 내용과 전달 방식을 분석해 보세요.',minutes:10,status:trainingProgress.routineCompleted?'done':'in-progress'},{id:'application-coach-motivation',step:2,name:'지원동기 초안 작성',description:'실제 경험과 검수된 항공사 문맥으로 지원 답변을 정리해 보세요.',minutes:15,status:applicationRoutineDone?'done':'todo'},{id:'interview-question-im2',step:3,name:'지원동기 답변 훈련',description:'지원 이유를 직접 답하고 내용과 전달 방식을 함께 분석해 보세요.',minutes:10,status:interviewRoutineDone?'done':'todo'},...baseTasks.map(task=>({...task,step:task.step+2}))]
+  const personalizedTasks: RoutineTask[] = [{id:SELF_INTRO_TASK_ID,step:1,name:'자기소개 실전 진단',description:'평소 면접처럼 자유롭게 답변하고, 내용과 전달 방식을 분석해 보세요.',minutes:10,status:trainingProgress.routineCompleted?'done':'todo'},{id:'application-coach-motivation',step:2,name:'지원동기 초안 작성',description:'실제 경험과 검수된 항공사 문맥으로 지원 답변을 정리해 보세요.',minutes:15,status:applicationRoutineDone?'done':'todo'},{id:'interview-question-im2',step:3,name:'지원동기 답변 훈련',description:'지원 이유를 직접 답하고 내용과 전달 방식을 함께 분석해 보세요.',minutes:10,status:interviewRoutineDone?'done':'todo'},...baseTasks.map(task=>({...task,step:task.step+2}))]
   const [tasks, setTasks] = useState<RoutineTask[]>(personalizedTasks)
-  useEffect(()=>setTasks(current=>current.map(task=>task.id===SELF_INTRO_TASK_ID?{...task,status:trainingProgress.routineCompleted?'done':'in-progress'}:task.id==='interview-question-im2'?{...task,status:interviewRoutineDone?'done':'todo'}:task)),[trainingProgress.routineCompleted,interviewRoutineDone])
-  const interviewGain=(capabilityGains.interview_communication??0);const skillGain=(id:string)=>id==='interview'?trainingProgress.interviewScoreGain+interviewGain:id==='resume'?(capabilityGains.application_readiness??0):id==='situation'?(capabilityGains.customer_situation_handling??0)+(capabilityGains.safety_and_role_judgment??0):0
-  const skills = diagnosis ? readiness.skills.map((skill) => ({ ...skill, value: Math.min(100,(diagnosis.skillScores[skill.id] ?? diagnosis.overallReadiness)+skillGain(skill.id)) })) : readiness.skills.map(skill=>({...skill,value:Math.min(100,skill.value+skillGain(skill.id))}))
-  const readinessSnapshot=getCurrentReadinessSnapshot(),weeklySummary=getWeeklyLearningSummary(),nextPriority=generateNextWeekPriorities()[0]
-  const adjustedReadiness=readinessSnapshot.currentReadinessScore
-  const coachMessage=weeklySummary.activityCount>=2?`${nextPriority.title}을 다음 우선순위로 추천해요. ${nextPriority.reason}`:interviewAttempts.length?'면접 훈련 결과를 반영했어요. 가장 낮은 평가 기준을 중심으로 다음 추천 질문을 연습해 보세요.':trainingProgress.routineCompleted?'자기소개 실전 진단을 완료했어요. 다음에는 경험의 행동과 결과를 더 선명하게 말하고, 마지막에 객실승무원 직무와 연결해 보세요.':diagnosis?.coachMessage ?? readiness.coachingMessage
+  useEffect(()=>setTasks(current=>current.map(task=>task.id===SELF_INTRO_TASK_ID?{...task,status:trainingProgress.routineCompleted?'done':'todo'}:task.id==='interview-question-im2'?{...task,status:interviewRoutineDone?'done':'todo'}:task)),[trainingProgress.routineCompleted,interviewRoutineDone])
+  const readinessSnapshot=getCurrentReadinessSnapshot(),weeklySummary=getWeeklyLearningSummary()
   const targetAirlineId=diagnosis?.primaryAirline
   const airlineProfile=targetAirlineId?airlineKnowledgeRepository.getProfile(targetAirlineId):undefined
   const airlineContext=targetAirlineId?getAirlineAIContext(targetAirlineId):null
@@ -124,6 +119,9 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   ]
   const queueQuestionTitles=Object.fromEntries(openQueueItems.map(item=>[item.questionId,resolveInterviewQuestion(item.questionId,item.airlineId)?.shortTitle??'재연습 질문']))
   const dailyPlan=buildDailyActionPlan({sessions:interviewSessions,applications:trackedApplications,queue:allQueueItems,queueQuestionTitles,weaknesses:adaptiveActions,weeklyTasks:confirmedTodayTasks,validQuestionIds:[...interviewQuestionById.keys()],balancedQuestionId:drillPlan.selectedQuestionIds[0]??'im2',currentApplicationDraft:currentApplicationDraft?{id:currentApplicationDraft.id,airlineId:currentApplicationDraft.airlineId,updatedAt:currentApplicationDraft.updatedAt}:undefined,recentSelfIntroductionAt:selfIntroductionAttempts[0]?.createdAt,completions:dailyCompletions})
+  const learningActivities=buildLearningActivities()
+  const latestWeakness=adaptiveWeaknesses.find(item=>item.state!=='resolved')
+  const homeRealState=buildHomeRealState({diagnosis,activities:learningActivities,weeklyPracticeCount:weeklySummary.activityCount,upcoming:upcomingApplications[0],coachMessage:latestWeakness?.explanation??(learningActivities.length?'최근 완료한 연습이 학습 기록에 반영됐습니다. 다음 추천 훈련을 이어가 보세요.':undefined),coachOccurredAt:latestWeakness?.latestObservedAt,coachSource:latestWeakness?'연습 분석':undefined})
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -154,7 +152,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   function handleTaskStart(id:string){ if(id===SELF_INTRO_TASK_ID){setSelfIntroductionChallengeTarget(undefined);setTrainingView('self-introduction');return} if(id==='application-coach-motivation'){setActiveNav('resume');setTrainingView('application-coach');return} if(id.startsWith('interview-question-')){const q=interviewQuestionById.get(id.replace('interview-question-',''));if(q){setActiveNav('interview');startInterviewQuestion(q)}return} toggleTask(id) }
   function handleTrainingComplete(_attempt:SelfIntroductionAttempt){setTrainingProgress(loadSelfIntroductionProgress())}
   function advanceMockSession(session:InterviewSession,attempt:InterviewAttempt){const next=completeInterviewSessionAttempt(session,attempt.id);if(next.status==='completed'){const completed={...next,sessionAnalysis:analyzeInterviewSession(next,loadInterviewAttempts())};saveInterviewSession(completed);setMockSession(completed);setMockReport(completed);setPracticeConfig(null);return}saveInterviewSession(next);setMockSession(next);const question=interviewQuestionById.get(next.questionIds[next.currentQuestionIndex]);if(question)setPracticeConfig({question,attemptType:'first',targetAirlineId:next.airlineId})}
-  function handleInterviewComplete(attempt:InterviewAttempt){if(practiceConfig?.sourceQueueItemId)interviewPracticeQueueRepository.markPracticed(practiceConfig.sourceQueueItemId);setInterviewAttempts(loadInterviewAttempts());setCapabilityGains(loadInterviewCapabilityGains());if(!mockSession)return;if(pendingFollowUp){const enriched=pendingFollowUp.adaptive?{...attempt,isFollowUp:true,parentAttemptId:pendingFollowUp.attempt.id,followUpReason:pendingFollowUp.reason,followUpTemplateId:pendingFollowUp.templateId}:attempt;if(pendingFollowUp.adaptive){saveInterviewAttempt(enriched);queueTrainingAttempt('interview',enriched,Boolean(enriched.audioId));setInterviewAttempts(loadInterviewAttempts())}setPendingFollowUp(null);advanceMockSession(mockSession,enriched);return}setPendingSessionAttempt(attempt)}
+  function handleInterviewComplete(attempt:InterviewAttempt){if(practiceConfig?.sourceQueueItemId)interviewPracticeQueueRepository.markPracticed(practiceConfig.sourceQueueItemId);setInterviewAttempts(loadInterviewAttempts());if(!mockSession)return;if(pendingFollowUp){const enriched=pendingFollowUp.adaptive?{...attempt,isFollowUp:true,parentAttemptId:pendingFollowUp.attempt.id,followUpReason:pendingFollowUp.reason,followUpTemplateId:pendingFollowUp.templateId}:attempt;if(pendingFollowUp.adaptive){saveInterviewAttempt(enriched);queueTrainingAttempt('interview',enriched,Boolean(enriched.audioId));setInterviewAttempts(loadInterviewAttempts())}setPendingFollowUp(null);advanceMockSession(mockSession,enriched);return}setPendingSessionAttempt(attempt)}
   function continueMockSession(){if(!mockSession||!pendingSessionAttempt)return;if(mockSession.mode==='ai_interviewer'){const question=interviewQuestionById.get(mockSession.questionIds[mockSession.currentQuestionIndex]);const prior=loadInterviewAttempts().filter(item=>mockSession.attemptIds.includes(item.id)&&item.isFollowUp);const decision=question?decideAiInterviewerFollowUp({question,attempt:pendingSessionAttempt,session:mockSession,priorFollowUps:prior,language:'ko',hasPublishedAirlineContext:Boolean(mockSession.airlineId&&getAirlineAIContext(mockSession.airlineId))}):{shouldAsk:false as const,source:'deterministic' as const};if(decision.shouldAsk&&question){const held=completeInterviewSessionAttempt(mockSession,pendingSessionAttempt.id,false);saveInterviewSession(held);setMockSession(held);setPendingSessionAttempt(null);setPracticeConfig(null);setPendingFollowUp({attempt:pendingSessionAttempt,message:decision.questionText??'',adaptive:true,question:buildFollowUpQuestion(question,decision),reason:decision.reason,templateId:decision.templateId});return}}const message=followUpForAttempt(pendingSessionAttempt);if(message&&mockSession.mode!=='ai_interviewer'){const held=completeInterviewSessionAttempt(mockSession,pendingSessionAttempt.id,false);saveInterviewSession(held);setMockSession(held);setPendingSessionAttempt(null);setPracticeConfig(null);setPendingFollowUp({attempt:pendingSessionAttempt,message});return}const attempt=pendingSessionAttempt;setPendingSessionAttempt(null);advanceMockSession(mockSession,attempt)}
 
   const featureShell=(content:ReactNode)=><div className="responsive-app flex h-full bg-background"><DesktopNavigation active={activeNav} onChange={setActiveNav}/><div className="min-w-0 flex-1 overflow-y-auto">{content}</div></div>
@@ -239,7 +237,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
 
           {recentCompletedSessions.length?<section className="rounded-3xl border border-border bg-card p-5 xl:col-span-12"><div className="flex items-center justify-between"><div><span className="eyebrow text-muted-foreground">RECENT</span><h2 className="mt-2 text-lg font-bold text-navy">최근 모의면접</h2></div><button type="button" onClick={()=>setActiveNav('interview')} className="text-sm font-bold text-navy">전체 보기 →</button></div><div className="mt-4 grid gap-3 md:grid-cols-3">{recentCompletedSessions.map(session=><article key={session.id} className="rounded-2xl bg-secondary/60 p-4"><strong className="text-sm text-navy">{session.mode==='ai_interviewer'?'AI 면접관':'모의면접'}</strong><p className="mt-1 text-xs text-muted-foreground">{session.questionIds.length}문항 · {new Date(session.completedAt??session.startedAt).toLocaleDateString('ko-KR')}</p><p className="mt-3 line-clamp-2 text-sm text-midnight">{session.sessionAnalysis?.improvements[0]??'완료한 답변 리포트를 확인해보세요.'}</p><button type="button" onClick={()=>{setMockSession(session);setMockReport(session)}} className="mt-3 text-sm font-bold text-navy">결과 보기</button></article>)}</div></section>:null}
 
-          <div className="xl:col-span-4"><JourneyCard onStartTraining={() => setActiveNav('routine')} target={diagnosis?.primaryAirline} score={adjustedReadiness} nextGoal={trainingProgress.routineCompleted?'자기소개와 지원동기 다듬기':diagnosis?.priorityAreas[0]?.title} /></div>
+          {diagnosis ? <div className="xl:col-span-4"><JourneyCard onStartTraining={() => setActiveNav('routine')} target={diagnosis.primaryAirline} score={readinessSnapshot.currentReadinessScore} nextGoal={trainingProgress.routineCompleted?'자기소개와 지원동기 다듬기':diagnosis.priorityAreas[0]?.title} /></div> : null}
 
           {/* Preparation overview */}
           <section
@@ -258,34 +256,30 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
               </div>
             </div>
 
-            <ReadinessGauge value={adjustedReadiness} />
-
-            <div className="mt-6 border-t border-border pt-6">
-              <SkillProgressList skills={skills} />
-            </div>
+            {homeRealState.readiness !== undefined && homeRealState.skills ? <><ReadinessGauge value={readinessSnapshot.currentReadinessScore} /><div className="mt-6 border-t border-border pt-6"><SkillProgressList skills={homeRealState.skills} /></div></> : <div className="rounded-2xl bg-secondary/60 p-5"><strong className="text-base text-navy">준비도 데이터가 아직 없습니다.</strong><p className="mt-2 text-sm text-muted-foreground">첫 진단을 완료하면 실제 응답을 기준으로 준비 현황이 표시됩니다.</p>{onEditDiagnosis ? <button type="button" onClick={onEditDiagnosis} className="mt-4 text-sm font-bold text-navy">첫 진단 시작 →</button> : null}</div>}
 
             <div className="mt-5 flex gap-3 rounded-2xl bg-secondary/60 p-4">
               <Lightbulb className="h-[18px] w-[18px] shrink-0 text-gold" strokeWidth={2} />
               <p className="text-sm leading-relaxed text-midnight">
-                {coachMessage}
+                {homeRealState.recentCoaching?.message ?? '첫 연습을 완료하면 실제 분석을 바탕으로 맞춤 피드백이 표시됩니다.'}
               </p>
             </div>
           </section>
 
           <div className="xl:col-span-8"><DailyRoutineList
-            label={dailyRoute.label}
-            title={dailyRoute.title}
-            totalTimeLabel={diagnosis ? `약 ${tasks.reduce((sum, task) => sum + task.minutes, 0)}분` : dailyRoute.totalTimeLabel}
+            label="TODAY’S ROUTE"
+            title="오늘의 준비 루틴"
+            totalTimeLabel={`약 ${tasks.reduce((sum, task) => sum + task.minutes, 0)}분`}
             tasks={tasks}
             onToggle={toggleTask}
             onTaskStart={handleTaskStart}
           /></div>
 
-          <div className="xl:col-span-4"><SecondaryStats /></div>
+          <div className="xl:col-span-4"><SecondaryStats streakDays={homeRealState.streakDays} weeklyPracticeCount={homeRealState.weeklyPracticeCount} upcoming={homeRealState.upcoming} /></div>
 
           <button type="button" onClick={()=>setTrainingView('weekly-report')} className="rounded-2xl border border-border bg-card p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold xl:col-span-4"><span className="eyebrow text-gold">WEEKLY REPORT</span><div className="mt-3 flex items-end justify-between"><div><strong className="text-xl text-navy">{weeklySummary.totalMinutes}분</strong><p className="mt-1 text-sm text-muted-foreground">이번 주 · {weeklySummary.activeDays}일 활동</p></div><span className="text-sm font-bold text-navy">리포트 보기 →</span></div></button>
 
-          <div className="xl:col-span-8"><CoachFeedbackCard message={coachMessage} /></div>
+          <div className="xl:col-span-8"><CoachFeedbackCard message={homeRealState.recentCoaching?.message} timeLabel={homeRealState.recentCoaching?.timeLabel} /></div>
         </main>}
       </div>
 

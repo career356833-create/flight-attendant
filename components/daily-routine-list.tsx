@@ -1,14 +1,14 @@
 'use client'
 
 import { Route } from 'lucide-react'
-import type { RoutineTask } from '@/lib/mock-data'
+import type { HomeRoutineTask } from '@/lib/home-real-state'
 import { RoutineTaskCard } from '@/components/routine-task-card'
 
 type DailyRoutineListProps = {
   label: string
   title: string
   totalTimeLabel: string
-  tasks: RoutineTask[]
+  tasks: HomeRoutineTask[]
   onToggle?: (id: string) => void
   onTaskStart?: (id: string) => void
 }

@@ -1,7 +1,13 @@
 'use client'
 
 import { Home, Route, Mic, FileText, User, type LucideIcon } from 'lucide-react'
-import { navItems } from '@/lib/mock-data'
+const navItems = [
+  { id: 'home', label: '홈', labelEn: 'HOME' },
+  { id: 'routine', label: '루틴', labelEn: 'ROUTINE' },
+  { id: 'interview', label: '면접', labelEn: 'INTERVIEW' },
+  { id: 'resume', label: '지원서 코치', labelEn: 'APPLICATION' },
+  { id: 'my', label: '마이', labelEn: 'MY' },
+] as const
 import { cn } from '@/lib/utils'
 
 const icons: Record<string, LucideIcon> = {

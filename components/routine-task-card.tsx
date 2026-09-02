@@ -1,7 +1,7 @@
 'use client'
 
 import { Check, Clock, Play } from 'lucide-react'
-import type { RoutineTask } from '@/lib/mock-data'
+import type { HomeRoutineTask as RoutineTask } from '@/lib/home-real-state'
 import { cn } from '@/lib/utils'
 
 type RoutineTaskCardProps = {

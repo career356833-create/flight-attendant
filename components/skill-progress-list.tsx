@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { SkillCategory } from '@/lib/mock-data'
+import type { HomeSkillMetric } from '@/lib/home-real-state'
 import { cn } from '@/lib/utils'
 
 type SkillProgressListProps = {
-  skills: SkillCategory[]
+  skills: HomeSkillMetric[]
 }
 
 function toneFor(value: number) {
