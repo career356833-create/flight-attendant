@@ -1,6 +1,5 @@
 'use client'
 
-import { Bell } from 'lucide-react'
 import { userProfile } from '@/lib/mock-data'
 
 export function AppHeader() {
@@ -17,20 +16,6 @@ export function AppHeader() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">
-        <button
-          type="button"
-          aria-label={`알림 ${userProfile.notifications}개`}
-          className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Bell className="h-5 w-5" strokeWidth={1.75} />
-          {userProfile.notifications > 0 && (
-            <span className="absolute right-2.5 top-2.5 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-coral" />
-            </span>
-          )}
-        </button>
-
         <button
           type="button"
           aria-label="내 프로필"
