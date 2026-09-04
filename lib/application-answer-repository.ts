@@ -942,6 +942,7 @@ export function createApplicationAnswer(input: {
   s.versions.push(version);
   input.experiences.forEach((e) => experienceRepository.markUsed(e.id));
   write(s);
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("cabin:application-answer-saved", { detail: { answerId: id } }));
   recordApplicationProgress(id, "structured", !!context, input.prompt.locale);
   if (input.analysis)
     recordApplicationProgress(id, "reviewed", !!context, input.prompt.locale);

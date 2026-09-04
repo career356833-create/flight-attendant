@@ -26,4 +26,19 @@ export function recommendQuestions(e:CareerExperience):InterviewQuestion[]{const
 export function experienceMatchScore(e:CareerExperience,q:InterviewQuestion){let score=categoryQuestionPrefixes[e.category].includes(q.id)?4:0;if(q.category==='behavioral_experience')score+=2;if(e.competencyTags.some(t=>q.targetCapabilities.some(c=>c.includes(t.split('_')[0]))))score+=2;return score}
 export function recommendExperiences(q:InterviewQuestion,items=experienceRepository.load().experiences){return [...items].sort((a,b)=>experienceMatchScore(b,q)-experienceMatchScore(a,q)).filter(e=>experienceMatchScore(e,q)>0).slice(0,3)}
 export function extractExperienceCandidate(transcript:string):CareerExperience{const e=emptyExperience('problem_solving');return{...e,title:'면접 답변에서 발견한 경험',situation:transcript.slice(0,Math.min(100,transcript.length)),action:transcript,result:'',shortSummary:transcript.slice(0,80),source:'interview_answer',originalTranscript:transcript,status:'basic_complete',competencyTags:recommendCompetencies({...e,title:'',situation:transcript,action:transcript} as CareerExperience)}}
-export function recordExperienceProgress(e:CareerExperience){if(typeof window==='undefined')return;try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)??'{"experienceGains":{},"dailyGains":{},"capabilityGains":{}}');if(p.experienceGains?.[e.id])return;const day=new Date().toISOString().slice(0,10),used=Number(p.dailyGains?.[day]??0);let gains:string[]=[];if(e.status!=='draft')gains.push('application_readiness');if(['structured','interview_ready'].includes(e.status))gains.push('interview_communication');if(e.category==='safety_judgment'&&e.status==='interview_ready')gains.push('safety_and_role_judgment');if(e.category==='customer_service'&&e.status==='interview_ready')gains.push('customer_situation_handling');gains=gains.slice(0,Math.max(0,3-used));p.experienceGains={...p.experienceGains,[e.id]:gains};p.dailyGains={...p.dailyGains,[day]:used+gains.length};p.capabilityGains=p.capabilityGains??{};gains.forEach(k=>p.capabilityGains[k]=Number(p.capabilityGains[k]??0)+1);localStorage.setItem(PROGRESS_KEY,JSON.stringify(p))}catch{localStorage.removeItem(PROGRESS_KEY)}}
+export function recordExperienceProgress(e:CareerExperience){
+  if(typeof window==='undefined')return
+  try{
+    const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)??'{"experienceGains":{},"dailyGains":{},"capabilityGains":{}}')
+    if(!p.experienceGains?.[e.id]){
+      const day=new Date().toISOString().slice(0,10),used=Number(p.dailyGains?.[day]??0)
+      let gains:string[]=[]
+      if(e.status!=='draft')gains.push('application_readiness')
+      if(['structured','interview_ready'].includes(e.status))gains.push('interview_communication')
+      if(e.category==='safety_judgment'&&e.status==='interview_ready')gains.push('safety_and_role_judgment')
+      if(e.category==='customer_service'&&e.status==='interview_ready')gains.push('customer_situation_handling')
+      gains=gains.slice(0,Math.max(0,3-used));p.experienceGains={...p.experienceGains,[e.id]:gains};p.dailyGains={...p.dailyGains,[day]:used+gains.length};p.capabilityGains=p.capabilityGains??{};gains.forEach(k=>p.capabilityGains[k]=Number(p.capabilityGains[k]??0)+1);localStorage.setItem(PROGRESS_KEY,JSON.stringify(p))
+    }
+    window.dispatchEvent(new CustomEvent('cabin:experience-saved',{detail:{experienceId:e.id}}))
+  }catch{localStorage.removeItem(PROGRESS_KEY)}
+}

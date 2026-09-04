@@ -1,9 +1,10 @@
 import { interviewQuestions, type InterviewAttempt } from './interview-practice-data'
 import { getPracticeQuestionsForAirline } from './airline-knowledge-repository'
+import type { WeeklyTaskContext } from './weekly-task-completion'
 
 export type InterviewSessionMode='general'|'airline_specific'|'english'|'safety'|'ai_interviewer'|'custom'
 export type InterviewSessionAnalysis={overallSummary:string;strengths:string[];improvements:string[];competencySummary:Array<{competency:string;strength:'strong'|'partial'|'missing'}>;speechSummary:string;audioSummary:string;pronunciationSummary?:string;contentSummary:string;nextPractice:string[];followUpSummary?:string}
-export type InterviewSession={id:string;mode:InterviewSessionMode;airlineId?:string;questionIds:string[];attemptIds:string[];currentQuestionIndex:number;status:'created'|'in_progress'|'completed';startedAt:string;completedAt?:string;sessionAnalysis?:InterviewSessionAnalysis}
+export type InterviewSession={id:string;mode:InterviewSessionMode;airlineId?:string;questionIds:string[];attemptIds:string[];currentQuestionIndex:number;status:'created'|'in_progress'|'completed';startedAt:string;completedAt?:string;sessionAnalysis?:InterviewSessionAnalysis;weeklyTaskContext?:WeeklyTaskContext}
 const key='cabin-mock-interview-sessions-v1'
 export const loadInterviewSessions=():InterviewSession[]=>{if(typeof window==='undefined')return[];try{const value=JSON.parse(localStorage.getItem(key)??'[]');return Array.isArray(value)?value:[]}catch{return[]}}
 export const saveInterviewSession=(session:InterviewSession)=>{if(typeof window!=='undefined')localStorage.setItem(key,JSON.stringify([session,...loadInterviewSessions().filter(item=>item.id!==session.id)].slice(0,20)))}
