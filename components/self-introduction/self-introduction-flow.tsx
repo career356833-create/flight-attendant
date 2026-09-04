@@ -33,6 +33,7 @@ import { buildInterviewSpeechMetrics } from "@/lib/interview-audio/speech-analys
 import { actualTranscript, transcriptionIntegrity, unavailableSelfIntroductionAnalysis } from "@/lib/ai/transcription-integrity";
 import { runPronunciationAnalysis } from "@/lib/ai/pronunciation-flow";
 import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfIntroductionPrompt, type SelfIntroductionLanguage } from "@/lib/self-introduction-language";
+import { sameConditionRetake, sortSelfIntroductionHistory } from "@/lib/self-introduction-history";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -66,6 +67,7 @@ export function SelfIntroductionFlow({
   const [paused, setPaused] = useState(false);
   const [transcript, setTranscript] = useState(mockTranscript);
   const [attempt, setAttempt] = useState<SelfIntroductionAttempt | null>(null);
+  const [selectedHistoryAttemptId, setSelectedHistoryAttemptId] = useState<string>();
   const [previousAttemptId, setPreviousAttemptId] = useState<string>();
   const [challengeTarget, setChallengeTarget] = useState<SelfIntroductionChallengeSeconds | undefined>(initialChallengeTarget);
   const [practiceLanguage, setPracticeLanguage] = useState<SelfIntroductionLanguage>(DEFAULT_SELF_INTRODUCTION_LANGUAGE);
@@ -320,6 +322,27 @@ export function SelfIntroductionFlow({
     setStep("microphone_check");
   }
 
+  function revisitHistory(selected: SelfIntroductionAttempt) {
+    setSelectedHistoryAttemptId(selected.id);
+    setAttempt(selected);
+    setStep("result");
+  }
+
+  function retakeHistory(selected: SelfIntroductionAttempt) {
+    const conditions = sameConditionRetake(selected);
+    setPreviousAttemptId(conditions.previousAttemptId);
+    setChallengeTarget(conditions.targetSeconds);
+    if (conditions.practiceLanguage) setPracticeLanguage(conditions.practiceLanguage);
+    setSelectedHistoryAttemptId(undefined);
+    setAttempt(null);
+    setTranscript(mockTranscript);
+    setElapsed(0);
+    setBlob(null);
+    setAudioUrl(undefined);
+    setStep("microphone_check");
+    void checkMicrophone();
+  }
+
   if (step === "intro")
     return (
       <SelfIntroductionIntro
@@ -380,6 +403,8 @@ export function SelfIntroductionFlow({
           void checkMicrophone();
         }}
         onLater={onExit}
+        history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
+        onSelectHistory={revisitHistory}
       />
     );
   if (step === "microphone_check" || step === "retry")
@@ -428,9 +453,20 @@ export function SelfIntroductionFlow({
     return (
       <SelfIntroductionResult
         attempt={attempt}
-        history={loadSelfIntroductionAttempts()}
-        onHome={onExit}
+        history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
+        onHome={() => {
+          if (selectedHistoryAttemptId) {
+            setSelectedHistoryAttemptId(undefined);
+            setAttempt(null);
+            setStep("intro");
+            return;
+          }
+          onExit();
+        }}
         onRetry={retry}
+        onSelectHistory={revisitHistory}
+        onRetakeSameConditions={() => retakeHistory(attempt)}
+        isHistoryRevisit={Boolean(selectedHistoryAttemptId)}
       />
     );
   return null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -16,6 +16,7 @@ import {
 import {
   formatDurationWords,
   formatElapsed,
+  loadAttemptAudio,
   type SelfIntroductionAnalysis,
   type SelfIntroductionAttempt,
 } from "@/lib/self-introduction-data";
@@ -91,6 +92,8 @@ export function SelfIntroductionIntro({
   onChallengeTarget,
   practiceLanguage,
   onPracticeLanguage,
+  history,
+  onSelectHistory,
 }: {
   onStart: () => void;
   onLater: () => void;
@@ -100,6 +103,8 @@ export function SelfIntroductionIntro({
   onChallengeTarget: (seconds?: SelfIntroductionChallengeSeconds) => void;
   practiceLanguage: SelfIntroductionLanguage;
   onPracticeLanguage: (language: SelfIntroductionLanguage) => void;
+  history?: SelfIntroductionAttempt[];
+  onSelectHistory?: (attempt: SelfIntroductionAttempt) => void;
 }) {
   const items = [
     "핵심 메시지",
@@ -176,6 +181,7 @@ export function SelfIntroductionIntro({
       <p className="mt-6 rounded-2xl bg-secondary/60 p-4 text-xs leading-relaxed text-midnight">
         {challengeTarget ? '목표 시간을 지나도 실패 처리되지 않으며, 사용자가 완료 버튼을 누를 때까지 녹음됩니다.' : '녹음은 사용자가 완료 버튼을 누를 때까지 계속됩니다.'}
       </p>
+      {history?.length && onSelectHistory ? <div className="mt-7"><AttemptHistory attempts={history} onSelect={onSelectHistory} /></div> : null}
     </DiagnosisFrame>
   );
 }
@@ -608,8 +614,12 @@ export function RetryRecommendation({
 
 export function AttemptHistory({
   attempts,
+  onSelect,
+  selectedAttemptId,
 }: {
   attempts: SelfIntroductionAttempt[];
+  onSelect?: (attempt: SelfIntroductionAttempt) => void;
+  selectedAttemptId?: string;
 }) {
   if (!attempts.length) return null;
   return (
@@ -617,9 +627,12 @@ export function AttemptHistory({
       <h2 className="text-base font-bold text-navy">시도 기록</h2>
       <div className="mt-3 space-y-2">
         {attempts.map((a) => (
-          <div
+          <button
+            type="button"
             key={a.id}
-            className={`${card} flex items-center justify-between`}
+            onClick={() => onSelect?.(a)}
+            aria-pressed={selectedAttemptId === a.id}
+            className={`${card} flex w-full items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${selectedAttemptId === a.id ? 'border-navy' : ''}`}
           >
             <div>
               <p className="text-sm font-bold text-navy">
@@ -629,15 +642,25 @@ export function AttemptHistory({
                 {new Date(a.createdAt).toLocaleString("ko-KR")}
               </p>
               {a.targetSeconds && <p className="mt-1 text-xs text-gold">목표 {a.targetSeconds}초</p>}
+              <p className="mt-1 text-xs text-muted-foreground">{a.practiceLanguage === 'ko' ? '한국어' : a.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}{a.previousAttemptId ? ' · 재도전' : ''}</p>
             </div>
             <span className="text-sm font-semibold text-teal">
               {formatDurationWords(a.durationSeconds)}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </section>
   );
+}
+
+function LocalAttemptAudio({attemptId}:{attemptId:string}) {
+  const [url,setUrl]=useState<string>();
+  const [checked,setChecked]=useState(false);
+  useEffect(()=>{let active=true;let objectUrl:string|undefined;void loadAttemptAudio(attemptId).then(blob=>{if(!active)return;if(blob){objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}setChecked(true)});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}},[attemptId]);
+  if(!checked)return <p className="mt-3 text-xs text-muted-foreground">저장된 녹음을 확인하고 있습니다.</p>;
+  if(!url)return <p className="mt-3 text-xs text-muted-foreground">이 기기에는 재생할 녹음이 없습니다. 저장된 결과는 계속 확인할 수 있습니다.</p>;
+  return <audio className="mt-3 w-full" controls src={url}>녹음 재생을 지원하지 않는 브라우저입니다.</audio>;
 }
 
 export function SelfIntroductionResult({
@@ -645,18 +668,27 @@ export function SelfIntroductionResult({
   history,
   onHome,
   onRetry,
+  onSelectHistory,
+  onRetakeSameConditions,
+  isHistoryRevisit = false,
 }: {
   attempt: SelfIntroductionAttempt;
   history: SelfIntroductionAttempt[];
   onHome: () => void;
   onRetry: (mode: string) => void;
+  onSelectHistory?: (attempt: SelfIntroductionAttempt) => void;
+  onRetakeSameConditions?: () => void;
+  isHistoryRevisit?: boolean;
 }) {
   const a = attempt.analysis;
   if (attempt.transcriptIntegrity && !attempt.transcriptIntegrity.isActualTranscription) return (
     <DiagnosisFrame title="자기소개 녹음 결과" onBack={onHome} footer={<button className={primary} onClick={onHome}>홈으로 돌아가기</button>}>
+      {isHistoryRevisit && <section className="mb-5 rounded-2xl border border-border bg-card p-5"><span className="eyebrow text-gold">HISTORY</span><p className="mt-2 text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleString('ko-KR')} · {attempt.targetSeconds ? `${attempt.targetSeconds}초` : '자유 연습'} · {attempt.practiceLanguage === 'ko' ? '한국어' : attempt.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}</p>{onRetakeSameConditions&&<button type="button" onClick={onRetakeSameConditions} className="mt-4 h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory">같은 조건으로 다시 연습</button>}</section>}
       <section className="rounded-3xl bg-navy p-5 text-ivory"><span className="text-xs font-bold text-gold">AUDIO ONLY</span><h2 className="mt-2 text-lg font-bold">녹음 완료 · {formatDurationWords(attempt.durationSeconds)}</h2><p className="mt-3 text-sm leading-relaxed">음성 전사 기능이 현재 연결되지 않아 자기소개 구조·필러·발화 속도 분석은 제공할 수 없습니다.</p></section>
       {attempt.audioMetrics && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="font-bold text-navy">오디오 기반 지표</h2><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>평균 음량 <strong>{attempt.audioMetrics.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics.pauses.longCount}회</strong></p></div></section>}
+      <LocalAttemptAudio key={attempt.id} attemptId={attempt.id}/>
       <button className="mt-5 h-12 w-full rounded-xl bg-coral text-sm font-bold text-white" onClick={()=>onRetry('repeat')}>다시 연습하기</button>
+      <div className="mt-7"><AttemptHistory attempts={history} onSelect={onSelectHistory} selectedAttemptId={attempt.id}/></div>
     </DiagnosisFrame>
   );
   const previous = attempt.previousAttemptId ? history.find(item => item.id === attempt.previousAttemptId) : undefined;
@@ -673,6 +705,7 @@ export function SelfIntroductionResult({
     >
       <div className="self-intro-result-grid">
       <div className="self-intro-result-main">
+      {isHistoryRevisit && <section className="mb-5 rounded-2xl border border-border bg-card p-5"><span className="eyebrow text-gold">HISTORY</span><h2 className="mt-2 text-base font-bold text-navy">과거 자기소개 결과</h2><p className="mt-2 text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleString('ko-KR')} · {attempt.targetSeconds ? `${attempt.targetSeconds}초` : '자유 연습'} · {attempt.practiceLanguage === 'ko' ? '한국어' : attempt.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}</p>{onRetakeSameConditions&&<button type="button" onClick={onRetakeSameConditions} className="mt-4 h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">같은 조건으로 다시 연습</button>}</section>}
       <section className="rounded-3xl bg-navy p-5 text-ivory">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -717,6 +750,8 @@ export function SelfIntroductionResult({
           </article>
         ))}
       </div>
+      <section className="mt-7 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">답변 기록</h2>{attempt.transcript ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-midnight">{attempt.transcript}</p> : <p className="mt-3 text-sm text-muted-foreground">저장된 전사 내용이 없습니다.</p>}<LocalAttemptAudio key={attempt.id} attemptId={attempt.id}/></section>
+      {a.challenge?.rubric?.evaluated && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="text-base font-bold text-navy">답변 구조 점검</h2><div className="mt-3 space-y-2">{a.challenge.rubric.findings.map(finding=><div key={finding.dimension} className="rounded-xl bg-secondary/60 p-3"><strong className="text-xs text-navy">{finding.dimension}</strong><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{finding.feedback}</p></div>)}</div></section>}
       <div className="mt-7">
         <SpeakingMetrics analysis={a} />
       </div>
@@ -738,7 +773,7 @@ export function SelfIntroductionResult({
       </aside>
       </div>
       <div className="mt-7">
-        <AttemptHistory attempts={history} />
+        <AttemptHistory attempts={history} onSelect={onSelectHistory} selectedAttemptId={attempt.id} />
       </div>
     </DiagnosisFrame>
   );
