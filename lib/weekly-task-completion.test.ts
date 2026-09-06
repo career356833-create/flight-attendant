@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { learningAnalyticsRepository, type RoutineCompletionSnapshot } from './learning-analytics-repository'
 import type { WeeklyRoutineDay, WeeklyRoutineTask } from './learning-analytics-service'
-import { acceptsWeeklyCompletion, completeWeeklyInterviewAttempt, createWeeklyTaskContext, incompleteWeeklyTasks, nextIncompleteWeeklyTask, weeklyCompletionIds, weeklyProgress } from './weekly-task-completion'
+import { acceptsWeeklyCompletion, completeWeeklyInterviewAttempt, completeWeeklyTaskContext, createWeeklyTaskContext, incompleteWeeklyTasks, nextIncompleteWeeklyTask, weeklyCompletionIds, weeklyProgress, type WeeklyCompletionEvent, type WeeklyTaskContext } from './weekly-task-completion'
 import { WEEKLY_TASK_CTA_CLASS } from '../components/weekly-report/weekly-report'
 
 const task=(type:WeeklyRoutineTask['type']='interview_question',id='week-2026-09-07-1'):WeeklyRoutineTask=>({id,type,title:'계획 과제',estimatedMinutes:10,relatedCapability:'interview_communication',reason:'계획'})
@@ -75,5 +75,32 @@ test('unfinished and direct attempts cannot mutate weekly completion',()=>{
     assert.equal(completeWeeklyInterviewAttempt({id:'unfinished',completed:false,weeklyTaskContext}),false)
     assert.equal(completeWeeklyInterviewAttempt({id:'direct',completed:true}),false)
     assert.equal(learningAnalyticsRepository.load().routineCompletions.length,0)
+  }finally{Object.assign(globalThis,{window:priorWindow,localStorage:priorStorage})}
+})
+
+test('every executable kind records its real completion exactly once',()=>{
+  const values=new Map<string,string>(),events:string[]=[]
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>void values.set(key,value),removeItem:(key:string)=>void values.delete(key)}
+  const priorWindow=globalThis.window,priorStorage=globalThis.localStorage
+  Object.assign(globalThis,{window:{dispatchEvent:(value:Event)=>{events.push(value.type);return true}},localStorage:storage})
+  try{
+    const matrix:Array<{kind:NonNullable<WeeklyTaskContext['targetKind']>;taskType:WeeklyRoutineTask['type'];event:WeeklyCompletionEvent}>=[
+      {kind:'interview',taskType:'interview_question',event:{type:'interview_attempt',entityId:'attempt-1',completed:true}},
+      {kind:'mock',taskType:'interview_question',event:{type:'mock_session',entityId:'session-1',completed:true}},
+      {kind:'self_introduction',taskType:'self_introduction',event:{type:'self_introduction',entityId:'self-1',completed:true}},
+      {kind:'application',taskType:'application_work',event:{type:'application_answer',entityId:'answer-1',completed:true}},
+      {kind:'experience',taskType:'experience_work',event:{type:'experience_saved',entityId:'experience-1',completed:true}},
+      {kind:'queue',taskType:'review',event:{type:'queue_practiced',entityId:'queue-1',completed:true}},
+    ]
+    matrix.forEach(({kind,taskType,event},index)=>{
+      const item=context(taskType,kind)!
+      item.weeklyTaskId=`matrix-${index}`
+      assert.equal(completeWeeklyTaskContext(item,event),true)
+      assert.equal(completeWeeklyTaskContext(item,{...event,entityId:`${event.entityId}-revisit`}),false)
+    })
+    const stored=learningAnalyticsRepository.load().routineCompletions
+    assert.equal(stored.length,matrix.length)
+    assert.deepEqual(new Set(stored.map(item=>item.sourceCompletionId)),new Set(matrix.map(item=>item.event.entityId)))
+    assert.equal(events.filter(value=>value==='cabin:learning-local-changed').length,matrix.length)
   }finally{Object.assign(globalThis,{window:priorWindow,localStorage:priorStorage})}
 })

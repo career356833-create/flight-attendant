@@ -24,12 +24,15 @@ export function acceptsWeeklyCompletion(context:WeeklyTaskContext|undefined,even
   if(context.taskType==='review')return event.type==='queue_practiced'||event.type==='interview_attempt'&&Boolean(event.previousAttemptId)
   return false
 }
+export function completeWeeklyTaskContext(context:WeeklyTaskContext|undefined,event:WeeklyCompletionEvent){
+  if(!context||!acceptsWeeklyCompletion(context,event)||learningAnalyticsRepository.isWeeklyTaskCompleted(context.weeklyTaskId))return false
+  learningAnalyticsRepository.recordWeeklyTask({id:context.weeklyTaskId,name:context.title,minutes:context.estimatedMinutes,weekStart:context.weekStart,sourceCompletionId:event.entityId},context.relatedCapability)
+  return true
+}
 export function completeWeeklyInterviewAttempt(attempt:WeeklyAttemptCompletion){
   const context=attempt.weeklyTaskContext
   const event:WeeklyCompletionEvent={type:'interview_attempt',entityId:attempt.id,completed:attempt.completed,previousAttemptId:attempt.previousAttemptId}
-  if(!context||!acceptsWeeklyCompletion(context,event)||learningAnalyticsRepository.isWeeklyTaskCompleted(context.weeklyTaskId))return false
-  learningAnalyticsRepository.recordWeeklyTask({id:context.weeklyTaskId,name:context.title,minutes:context.estimatedMinutes,weekStart:context.weekStart,sourceCompletionId:attempt.id},context.relatedCapability)
-  return true
+  return completeWeeklyTaskContext(context,event)
 }
 export const weeklyCompletionIds=(items:RoutineCompletionSnapshot[]=[])=>{const source=items.length?items:learningAnalyticsRepository.load().routineCompletions;if(!items.length&&source.length)items.push(...source);return new Set(source.filter(item=>item.source==='weekly_plan').map(item=>item.taskId))}
 export const weeklyProgress=(days:WeeklyRoutineDay[],completed:Set<string>)=>{const tasks=days.flatMap(day=>day.tasks);return{completed:tasks.filter(task=>completed.has(task.id)).length,total:tasks.length}}

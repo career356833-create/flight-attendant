@@ -99,8 +99,12 @@ export function weeklyTaskToDailyAction(
   } else if (task.type === "self_introduction") target = { kind: "self_introduction", targetSeconds: 60 };
   else if (task.type === "application_work") target = { kind: "application_coach" };
   else if (task.type === "experience_work") target = { kind: "experience_library" };
-  else if (task.type === "review" && options.queueItem) {
-    target = { kind: "interview_question", questionId: options.queueItem.questionId, airlineId: options.queueItem.airlineId, queueItemId: options.queueItem.id };
+  else if (task.type === "review") {
+    target = options.queueItem
+      ? { kind: "interview_question", questionId: options.queueItem.questionId, airlineId: options.queueItem.airlineId, queueItemId: options.queueItem.id }
+      : options.validQuestionIds.includes(options.balancedQuestionId)
+        ? { kind: "interview_question", questionId: options.balancedQuestionId }
+        : null;
   } else if (/mock|모의면접/i.test(task.title)) target = { kind: "mock_start" };
   if (!target) return null;
   return {

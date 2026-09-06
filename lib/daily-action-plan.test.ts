@@ -33,6 +33,9 @@ test("weekly interview task resolves to Interview Practice", () => assert.equal(
 test("weekly self introduction task resolves", () => assert.equal(weeklyTaskToDailyAction(weekly("self_introduction"), base)?.target.kind, "self_introduction"));
 test("weekly application task resolves", () => assert.equal(weeklyTaskToDailyAction(weekly("application_work"), base)?.target.kind, "application_coach"));
 test("weekly experience task resolves", () => assert.equal(weeklyTaskToDailyAction(weekly("experience_work"), base)?.target.kind, "experience_library"));
+test("weekly review without a queue resolves to real interview practice", () => assert.equal(weeklyTaskToDailyAction(weekly("review"), base)?.target.kind, "interview_question"));
+test("weekly review prefers a real queued retry when available", () => assert.equal(weeklyTaskToDailyAction(weekly("review"), { ...base, queueItem: queue() })?.target.kind, "interview_question"));
+test("weekly airline research remains non-actionable without a completion authority", () => assert.equal(weeklyTaskToDailyAction(weekly("airline_research"), base), null));
 test("invalid weekly question target has no CTA", () => assert.equal(weeklyTaskToDailyAction(weekly("interview_question", { sourceEntityId: "invalid" }), base), null));
 test("same queue and adaptive question are deduplicated", () => { const plan = buildDailyActionPlan({ ...base, queue: [queue({ questionId: "be1" })], weaknesses: [{ weakness: weakness(), questionId: "be1" }] }); assert.equal([plan.primary, ...plan.secondary].filter((item) => item.dedupeKey === "question:be1").length, 1); });
 test("plan always has one primary and at most two secondary actions", () => { const plan = buildDailyActionPlan({ ...base, sessions: [session()], queue: [queue()], weaknesses: [{ weakness: weakness(), questionId: "be1" }], weeklyTasks: [weekly("self_introduction")] }); assert.ok(plan.primary); assert.ok(plan.secondary.length <= 2); });
