@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { learningAnalyticsRepository, type RoutineCompletionSnapshot } from './learning-analytics-repository'
 import type { WeeklyRoutineDay, WeeklyRoutineTask } from './learning-analytics-service'
-import { acceptsWeeklyCompletion, createWeeklyTaskContext, incompleteWeeklyTasks, nextIncompleteWeeklyTask, weeklyCompletionIds, weeklyProgress } from './weekly-task-completion'
+import { acceptsWeeklyCompletion, completeWeeklyInterviewAttempt, createWeeklyTaskContext, incompleteWeeklyTasks, nextIncompleteWeeklyTask, weeklyCompletionIds, weeklyProgress } from './weekly-task-completion'
 import { WEEKLY_TASK_CTA_CLASS } from '../components/weekly-report/weekly-report'
 
 const task=(type:WeeklyRoutineTask['type']='interview_question',id='week-2026-09-07-1'):WeeklyRoutineTask=>({id,type,title:'계획 과제',estimatedMinutes:10,relatedCapability:'interview_communication',reason:'계획'})
@@ -38,3 +38,42 @@ test('repository stores one completion for duplicate weekly events',()=>{const v
 test('repository keeps different cross-week task ids separate',()=>{const values=new Map<string,string>();const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>void values.set(key,value),removeItem:(key:string)=>void values.delete(key)};const priorWindow=globalThis.window;const priorStorage=globalThis.localStorage;Object.assign(globalThis,{window:{dispatchEvent:()=>true},localStorage:storage});try{learningAnalyticsRepository.recordWeeklyTask({id:'week-1-task',name:'첫 주',minutes:10,weekStart:'2026-09-07'});learningAnalyticsRepository.recordWeeklyTask({id:'week-2-task',name:'둘째 주',minutes:10,weekStart:'2026-09-14'});assert.equal(learningAnalyticsRepository.load().routineCompletions.length,2)}finally{Object.assign(globalThis,{window:priorWindow,localStorage:priorStorage})}})
 test('mobile weekly task CTA keeps a 44px minimum target',()=>assert.equal(WEEKLY_TASK_CTA_CLASS.split(' ').includes('min-h-11'),true))
 test('desktop weekly task CTA keeps compact card alignment',()=>{const classes=WEEKLY_TASK_CTA_CLASS.split(' ');assert.equal(classes.includes('shrink-0'),true);assert.equal(classes.includes('w-full'),false)})
+
+test('completed current task attempt preserves lineage and advances exactly once',()=>{
+  const values=new Map<string,string>(),events:string[]=[]
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>void values.set(key,value),removeItem:(key:string)=>void values.delete(key)}
+  const priorWindow=globalThis.window,priorStorage=globalThis.localStorage
+  Object.assign(globalThis,{window:{dispatchEvent:(value:Event)=>{events.push(value.type);return true}},localStorage:storage})
+  try{
+    const current=task('interview_question','current-2026-09-07-0'),next=task('review','current-2026-09-07-1')
+    const weeklyTaskContext=createWeeklyTaskContext(current,'2026-09-07','interview')!
+    const attempt={id:'attempt-current-1',completed:true,weeklyTaskContext}
+    assert.equal(completeWeeklyInterviewAttempt(attempt),true)
+    const stored=learningAnalyticsRepository.load().routineCompletions
+    assert.equal(stored.length,1)
+    assert.equal(stored[0].taskId,current.id)
+    assert.equal(stored[0].sourceCompletionId,attempt.id)
+    assert.match(stored[0].occurredAt,/^\d{4}-\d{2}-\d{2}T/)
+    const completed=weeklyCompletionIds(stored)
+    assert.deepEqual(weeklyProgress(days([current,next]),completed),{completed:1,total:2})
+    assert.equal(nextIncompleteWeeklyTask(days([current,next]),completed)?.id,next.id)
+    assert.deepEqual(incompleteWeeklyTasks([current,next],completed).map(item=>item.id),[next.id])
+    assert.equal(completeWeeklyInterviewAttempt(attempt),false)
+    assert.equal(completeWeeklyInterviewAttempt({...attempt,id:'attempt-current-retake',previousAttemptId:attempt.id}),false)
+    assert.equal(learningAnalyticsRepository.load().routineCompletions.length,1)
+    assert.equal(events.filter(value=>value==='cabin:learning-local-changed').length,1)
+  }finally{Object.assign(globalThis,{window:priorWindow,localStorage:priorStorage})}
+})
+
+test('unfinished and direct attempts cannot mutate weekly completion',()=>{
+  const values=new Map<string,string>()
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>void values.set(key,value),removeItem:(key:string)=>void values.delete(key)}
+  const priorWindow=globalThis.window,priorStorage=globalThis.localStorage
+  Object.assign(globalThis,{window:{dispatchEvent:()=>true},localStorage:storage})
+  try{
+    const weeklyTaskContext=createWeeklyTaskContext(task('interview_question','current-2026-09-07-0'),'2026-09-07','interview')!
+    assert.equal(completeWeeklyInterviewAttempt({id:'unfinished',completed:false,weeklyTaskContext}),false)
+    assert.equal(completeWeeklyInterviewAttempt({id:'direct',completed:true}),false)
+    assert.equal(learningAnalyticsRepository.load().routineCompletions.length,0)
+  }finally{Object.assign(globalThis,{window:priorWindow,localStorage:priorStorage})}
+})
