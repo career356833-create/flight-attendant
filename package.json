@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "tsx --test",
     "lint": "eslint .",
     "validate:airlines": "node scripts/validate-airline-data-pack.mjs",
     "validate:profile-privacy": "node scripts/validate-profile-privacy.mjs"
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
     "typescript": "5.7.3"
   }
 }
