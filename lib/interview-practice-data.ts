@@ -7,6 +7,7 @@ import type { InterviewSpeechMetrics } from '@/lib/interview-audio/speech-analys
 import type { PronunciationAnalysisResult } from '@/lib/ai/pronunciation-provider'
 import type { InterviewContentAnalysis } from '@/lib/interview-content-analysis'
 import type { TranscriptionMode } from '@/lib/ai/types'
+import type { WeeklyTaskContext } from '@/lib/weekly-task-completion'
 
 export type InterviewCategory = 'introduction_and_motivation' | 'behavioral_experience' | 'customer_situation' | 'safety_and_role_judgment'
 export type CapabilityKey = 'application_readiness' | 'interview_communication' | 'customer_situation_handling' | 'safety_and_role_judgment' | 'recruitment_language' | 'airline_and_role_understanding'
@@ -37,7 +38,7 @@ export type TranscriptIntegrity={providerId?:string;mode:TranscriptionMode|'unkn
 export type InterviewPracticeSourceContext = { source:'application_drill'|'mock_report'; applicationAnswerId?:string; applicationVersionId?:string; weakness?:string; mockSessionId?:string; sourceAttemptId?:string; questionId?:string }
 export type InterviewAttempt = { id:string; questionId:string; category:InterviewCategory; createdAt:string; transcript:string; transcriptIntegrity?:TranscriptIntegrity; durationSeconds:number; audioId?:string; audioPath?:string; audioMetrics?:InterviewAudioMetrics;speechMetrics?:InterviewSpeechMetrics;pronunciationAnalysis?:PronunciationAnalysisResult;contentAnalysis?:InterviewContentAnalysis; analysis:InterviewAnswerAnalysis; targetAirlineId?:string; experienceId?:string; experienceSnapshot?:{title:string;category:ExperienceCategory;shortSummary:string}; sourceContext?:InterviewPracticeSourceContext; attemptNumber:number; previousAttemptId?:string; isFollowUp?:boolean; parentAttemptId?:string; followUpReason?:string; followUpTemplateId?:string; completed:boolean }
 export type QuestionProgress = { questionId:string; attemptCount:number; bestScore:number; latestScore:number; completed:boolean; lastPracticedAt?:string; improvementDelta?:number }
-export type InterviewPracticeConfig = { question:InterviewQuestion; attemptType:'first'|'retry'; previousAttemptId?:string; targetAirlineId?:string; selectedExperienceId?:string; sourceQueueItemId?:string; sourceContext?:InterviewPracticeSourceContext; languageHint?:'ko'|'en'; followUp?:{parentAttemptId:string;reason:string;templateId:string} }
+export type InterviewPracticeConfig = { question:InterviewQuestion; attemptType:'first'|'retry'; previousAttemptId?:string; targetAirlineId?:string; selectedExperienceId?:string; sourceQueueItemId?:string; sourceContext?:InterviewPracticeSourceContext; languageHint?:'ko'|'en'; weeklyTaskContext?:WeeklyTaskContext; followUp?:{parentAttemptId:string;reason:string;templateId:string} }
 export type InterviewPracticeStep = 'intro'|'microphone_check'|'recording'|'review'|'analyzing'|'result'|'retry'
 
 const categoryMeta:Record<InterviewCategory,{capabilities:CapabilityKey[];rubric:string[];range:{minSeconds:number;maxSeconds:number}}>={

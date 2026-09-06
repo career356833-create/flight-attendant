@@ -1,0 +1,47 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import type { InterviewAttempt, InterviewPracticeConfig, InterviewQuestion } from './interview-practice-data'
+import { canCompareInterviewRetake, normalizeSingleInterviewResume, restoreSingleInterviewConfig, resumeFromConfig, sortSingleInterviewHistory } from './single-interview-resume'
+
+const question={id:'be1',category:'behavioral_experience',prompt:'질문',shortTitle:'질문',difficulty:'beginner',targetCapabilities:['interview_communication'],evaluationRubric:{keys:[],guidance:''},localeKey:'test'} as InterviewQuestion
+const config:InterviewPracticeConfig={question,attemptType:'first',languageHint:'en',targetAirlineId:'emirates',selectedExperienceId:'exp-1',sourceContext:{source:'application_drill',applicationAnswerId:'answer-1'}}
+const attempt=(overrides:Partial<InterviewAttempt>={}):InterviewAttempt=>({id:'attempt-1',questionId:'be1',category:'behavioral_experience',createdAt:'2026-09-05T10:00:00.000Z',transcript:'actual answer',transcriptIntegrity:{mode:'actual_audio',isActualTranscription:true},durationSeconds:60,analysis:{overallScore:0,summary:'saved',strengths:[],improvements:[],evaluationScores:[],timingAnalysis:{durationSeconds:60,firstKeyMessageAtSeconds:null,silenceSeconds:0,repeatedPhraseCount:0,assessment:'well_balanced',feedback:'balanced'},speakingMetrics:{wordsPerMinute:100,speakingPaceLabel:'balanced',longSilenceCount:0,fillerCount:0,repeatedPhraseCount:0},recommendedRetryMode:'repeat_current_structure',nextQuestionIds:[]},attemptNumber:1,completed:true,...overrides})
+
+test('valid practice creates minimal resume metadata without transcript',()=>{const value=resumeFromConfig(config,'application_drill','2026-09-05T09:00:00.000Z');assert.equal(value.questionId,'be1');assert.equal(value.practiceLanguage,'en');assert.equal('transcript' in value,false)})
+test('exact question, language, experience and lineage restore',()=>{const value=resumeFromConfig(config);const restored=restoreSingleInterviewConfig(value,{questionExists:id=>id==='be1',airlineContextAllowed:()=>true,experienceExists:id=>id==='exp-1'});assert.equal(restored?.languageHint,'en');assert.equal(restored?.selectedExperienceId,'exp-1');assert.equal(restored?.sourceContext?.applicationAnswerId,'answer-1')})
+test('invalid airline context downgrades to generic',()=>{const restored=restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true,airlineContextAllowed:()=>false,experienceExists:()=>true});assert.equal(restored?.targetAirlineId,undefined)})
+test('invalid question has no arbitrary fallback',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>false}),null))
+test('invalid experience is omitted safely',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true,experienceExists:()=>false})?.selectedExperienceId,undefined))
+test('legacy missing language safely defaults to Korean',()=>assert.equal(normalizeSingleInterviewResume({questionId:'be1',startedAt:'2026-09-05T09:00:00.000Z',source:'direct'})?.practiceLanguage,'ko'))
+test('malformed resume is rejected',()=>assert.equal(normalizeSingleInterviewResume({questionId:'be1',startedAt:'bad'}),null))
+test('history is newest first with stable invalid timestamp handling',()=>{const rows=sortSingleInterviewHistory([attempt({id:'old'}),attempt({id:'bad',createdAt:'bad'}),attempt({id:'new',createdAt:'2026-09-06T10:00:00.000Z'})]);assert.deepEqual(rows.map(row=>row.id),['new','old','bad'])})
+test('incomplete attempt is excluded from result history',()=>assert.equal(sortSingleInterviewHistory([attempt({completed:false})]).length,0))
+test('actual audio retake comparison is allowed',()=>{const previous=attempt();assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:previous.id}),previous),true)})
+test('mock or fallback comparison is blocked',()=>{const previous=attempt({transcriptIntegrity:{mode:'mock',isActualTranscription:false}});assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:previous.id}),previous),false)})
+test('original attempt remains separate from appended retake',()=>{const original=attempt(),retake=attempt({id:'attempt-2',previousAttemptId:original.id});assert.deepEqual([original,retake].map(item=>item.id),['attempt-1','attempt-2'])})
+test('selected experience is preserved in resume metadata',()=>assert.equal(resumeFromConfig(config).selectedExperienceId,'exp-1'))
+test('target airline identity is preserved before revalidation',()=>assert.equal(resumeFromConfig(config).targetAirlineId,'emirates'))
+test('source lineage is preserved',()=>assert.equal(resumeFromConfig(config,'application_drill').source,'application_drill'))
+test('source context question lineage is preserved',()=>{const row=resumeFromConfig({...config,sourceContext:{source:'mock_report',mockSessionId:'session-1',sourceAttemptId:'attempt-0',questionId:'be1'}},'mock_report');assert.equal(row.sourceContext?.mockSessionId,'session-1')})
+test('queue item identity is preserved without changing queue',()=>assert.equal(resumeFromConfig({...config,sourceQueueItemId:'queue-1'},'queue').sourceQueueItemId,'queue-1'))
+test('weekly task context is preserved',()=>{const weekly={weeklyTaskId:'weekly-1',taskType:'interview_question' as const,title:'연습',estimatedMinutes:10,relatedCapability:'interview_communication' as const,source:'weekly_plan' as const,targetKind:'interview' as const};assert.equal(resumeFromConfig({...config,weeklyTaskContext:weekly},'weekly_task').weeklyTaskContext?.weeklyTaskId,'weekly-1')})
+test('startedAt is deterministic when provided',()=>assert.equal(resumeFromConfig(config,'direct','2026-09-01T00:00:00.000Z').startedAt,'2026-09-01T00:00:00.000Z'))
+test('resume excludes unfinished analysis',()=>assert.equal('analysis' in resumeFromConfig(config),false))
+test('resume excludes raw audio',()=>assert.equal('audio' in resumeFromConfig(config),false))
+test('resume excludes audio blob identifiers',()=>assert.equal('audioId' in resumeFromConfig(config),false))
+test('restore starts a new incomplete recording flow',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true})?.attemptType,'first'))
+test('restore does not create a previous attempt',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true})?.previousAttemptId,undefined))
+test('safe airline context restores exact identity',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true,airlineContextAllowed:id=>id==='emirates'})?.targetAirlineId,'emirates'))
+test('missing airline validator downgrades safely',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true})?.targetAirlineId,undefined))
+test('valid selected experience restores exact identity',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true,experienceExists:id=>id==='exp-1'})?.selectedExperienceId,'exp-1'))
+test('missing experience validator omits stale relation',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig(config),{questionExists:()=>true})?.selectedExperienceId,undefined))
+test('weekly lineage survives restoration',()=>{const weekly={weeklyTaskId:'weekly-1',taskType:'interview_question' as const,title:'연습',estimatedMinutes:10,relatedCapability:'interview_communication' as const,source:'weekly_plan' as const};const restored=restoreSingleInterviewConfig(resumeFromConfig({...config,weeklyTaskContext:weekly}),{questionExists:()=>true});assert.equal(restored?.weeklyTaskContext?.weeklyTaskId,'weekly-1')})
+test('queue lineage survives restoration',()=>assert.equal(restoreSingleInterviewConfig(resumeFromConfig({...config,sourceQueueItemId:'queue-1'}),{questionExists:()=>true})?.sourceQueueItemId,'queue-1'))
+test('normalization preserves English language',()=>assert.equal(normalizeSingleInterviewResume({questionId:'be1',practiceLanguage:'en',source:'direct',startedAt:'2026-09-01T00:00:00.000Z'})?.practiceLanguage,'en'))
+test('normalization rejects missing question',()=>assert.equal(normalizeSingleInterviewResume({startedAt:'2026-09-01T00:00:00.000Z'}),null))
+test('stable history order keeps input order for equal timestamps',()=>assert.deepEqual(sortSingleInterviewHistory([attempt({id:'a'}),attempt({id:'b'})]).map(item=>item.id),['a','b']))
+test('history does not modify source array',()=>{const source=[attempt({id:'old'}),attempt({id:'new',createdAt:'2026-09-06T10:00:00.000Z'})];sortSingleInterviewHistory(source);assert.deepEqual(source.map(item=>item.id),['old','new'])})
+test('comparison requires previousAttemptId lineage',()=>assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2'}),attempt()),false))
+test('comparison requires current actual transcript',()=>assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:'attempt-1',transcriptIntegrity:{mode:'fallback',isActualTranscription:false}}),attempt()),false))
+test('comparison requires previous actual transcript',()=>assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:'attempt-1'}),attempt({transcriptIntegrity:{mode:'fallback',isActualTranscription:false}})),false))
+test('result history selection is identity preserving',()=>{const saved=attempt();assert.equal(sortSingleInterviewHistory([saved])[0],saved)})

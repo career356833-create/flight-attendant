@@ -4,11 +4,13 @@ import type { InterviewSession } from "./mock-interview-session";
 import type { InterviewPracticeQueueItem } from "./interview-practice-queue";
 import type { AdaptiveWeakness } from "./learning-analytics-adaptive";
 import type { WeeklyRoutineTask } from "./learning-analytics-service";
+import type { SingleInterviewResume } from "./single-interview-resume";
 
 export const DAILY_DEADLINE_WINDOW_DAYS = 7;
 
 export type DailyActionTarget =
   | { kind: "mock_resume"; sessionId: string }
+  | { kind: "single_interview_resume"; questionId: string }
   | { kind: "mock_start"; airlineId?: string }
   | { kind: "interview_question"; questionId: string; airlineId?: string; queueItemId?: string }
   | { kind: "application_coach"; airlineId?: string; applicationAnswerId?: string }
@@ -65,6 +67,7 @@ export type DailyActionPlanInput = {
   validQuestionIds?: string[];
   balancedQuestionId: string;
   currentApplicationDraft?: { id: string; airlineId?: string; updatedAt: string };
+  singleInterviewResume?: SingleInterviewResume | null;
   recentSelfIntroductionAt?: string;
   completions?: DailyCompletionEvent[];
 };
@@ -134,6 +137,11 @@ function candidates(input: DailyActionPlanInput): DailyActionCandidate[] {
     source: "resume",
     resume: true,
     createdAt: active.startedAt,
+  });
+  if(input.singleInterviewResume&&validQuestions.has(input.singleInterviewResume.questionId))rows.push({
+    id:`resume:single:${input.singleInterviewResume.questionId}`,dedupeKey:`question:${input.singleInterviewResume.questionId}`,type:'resume',
+    title:'이어하던 면접 질문을 계속하세요',description:'같은 질문과 연습 조건에서 새 녹음을 시작합니다.',reason:'완료하지 않은 단일 면접 연습이 저장되어 있습니다.',
+    priority:950,target:{kind:'single_interview_resume',questionId:input.singleInterviewResume.questionId},source:'resume',resume:true,createdAt:input.singleInterviewResume.startedAt,
   });
 
   for (const application of input.applications ?? []) {
