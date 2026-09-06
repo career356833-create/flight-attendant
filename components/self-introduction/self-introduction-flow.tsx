@@ -34,6 +34,7 @@ import { actualTranscript, transcriptionIntegrity, unavailableSelfIntroductionAn
 import { runPronunciationAnalysis } from "@/lib/ai/pronunciation-flow";
 import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfIntroductionPrompt, type SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import { sameConditionRetake, sortSelfIntroductionHistory } from "@/lib/self-introduction-history";
+import { resolveSelfIntroductionResultNavigation } from "@/lib/self-introduction-navigation";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -343,6 +344,16 @@ export function SelfIntroductionFlow({
     void checkMicrophone();
   }
 
+  function navigateFromResult(action: "back" | "home") {
+    if (resolveSelfIntroductionResultNavigation(action, Boolean(selectedHistoryAttemptId)) === "exit") {
+      onExit();
+      return;
+    }
+    setSelectedHistoryAttemptId(undefined);
+    setAttempt(null);
+    setStep("intro");
+  }
+
   if (step === "intro")
     return (
       <SelfIntroductionIntro
@@ -454,15 +465,8 @@ export function SelfIntroductionFlow({
       <SelfIntroductionResult
         attempt={attempt}
         history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
-        onHome={() => {
-          if (selectedHistoryAttemptId) {
-            setSelectedHistoryAttemptId(undefined);
-            setAttempt(null);
-            setStep("intro");
-            return;
-          }
-          onExit();
-        }}
+        onBack={selectedHistoryAttemptId ? () => navigateFromResult("back") : undefined}
+        onHome={() => navigateFromResult("home")}
         onRetry={retry}
         onSelectHistory={revisitHistory}
         onRetakeSameConditions={() => retakeHistory(attempt)}
