@@ -8,7 +8,6 @@ import { ReadinessGauge } from '@/components/readiness-gauge'
 import { SkillProgressList } from '@/components/skill-progress-list'
 import { DailyRoutineList } from '@/components/daily-routine-list'
 import { CoachFeedbackCard } from '@/components/coach-feedback-card'
-import { SecondaryStats } from '@/components/secondary-stats'
 import { BottomNavigation, DesktopNavigation } from '@/components/bottom-navigation'
 import { Lightbulb } from 'lucide-react'
 import { onboardingKo } from '@/lib/onboarding-i18n'
@@ -30,7 +29,7 @@ import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository
 import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'
 import { airlineKnowledgeRepository, getAirlineAIContext } from '@/lib/airline-knowledge-repository'
-import { buildHomeDrillPlan, buildHomeInterviewRecommendation, buildRecentInterviewGrowth, buildWeeklyInterviewActivity, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
+import { buildHomeDrillPlan, buildHomeInterviewRecommendation, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
 import { getExperienceCoverage } from '@/lib/experience-match-engine'
 import { listWorkDrafts } from '@/lib/application-answer-repository'
 import { interviewPracticeQueueRepository, resolveInterviewQuestion } from '@/lib/interview-practice-queue'
@@ -50,6 +49,7 @@ import { buildHomeRealState, type HomeRoutineTask as RoutineTask, type HomeRouti
 import { acceptsWeeklyCompletion, createWeeklyTaskContext, incompleteWeeklyTasks, weeklyCompletionIds, type WeeklyTaskContext } from '@/lib/weekly-task-completion'
 import type { MockReportAction } from '@/lib/mock-report-actions'
 import { restoreSingleInterviewConfig, resumeFromConfig, singleInterviewResumeRepository, sortSingleInterviewHistory, type SingleInterviewResume, type SingleInterviewResumeSource } from '@/lib/single-interview-resume'
+import { deriveHomePresentationModel } from '@/lib/home-presentation'
 
 function DailyActionCard({action,primary=false,onStart}:{action:DailyActionCandidate;primary?:boolean;onStart:()=>void}){
   return <article className={primary?'rounded-3xl bg-navy p-6 text-ivory shadow-sm':'rounded-2xl border border-border bg-card p-4'}>
@@ -76,7 +76,6 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const [pendingFollowUp,setPendingFollowUp]=useState<{attempt:InterviewAttempt;message:string;adaptive?:boolean;question?:InterviewQuestion;reason?:string;templateId?:string}|null>(null)
   const [interviewAttempts,setInterviewAttempts]=useState<InterviewAttempt[]>([])
   const [interviewSessions,setInterviewSessions]=useState<InterviewSession[]>([])
-  const [sessionHistoryReady,setSessionHistoryReady]=useState(false)
   const [sessionHistoryAvailable,setSessionHistoryAvailable]=useState(true)
   const [trainingProgress,setTrainingProgress]=useState<SelfIntroductionProgress>({routineCompleted:false,interviewScoreGain:0,scoreHistory:[]})
   const [usageRevision,setUsageRevision]=useState(0)
@@ -86,7 +85,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const [singleInterviewResume,setSingleInterviewResume]=useState<SingleInterviewResume|null>(null)
   const [selectedInterviewResult,setSelectedInterviewResult]=useState<InterviewAttempt|null>(null)
   const [invalidResume,setInvalidResume]=useState(false)
-  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);setSessionHistoryReady(true);const usageChanged=()=>setUsageRevision(v=>v+1);const experienceChanged=()=>setExperienceRevision(v=>v+1);window.addEventListener('cabin:training-sync-changed',usageChanged);window.addEventListener('cabin:application-local-changed',usageChanged);window.addEventListener('cabin:application-sync-changed',usageChanged);window.addEventListener('cabin:experience-sync-changed',experienceChanged);window.addEventListener(interviewPracticeQueueRepository.eventName,usageChanged);return()=>{window.removeEventListener('cabin:training-sync-changed',usageChanged);window.removeEventListener('cabin:application-local-changed',usageChanged);window.removeEventListener('cabin:application-sync-changed',usageChanged);window.removeEventListener('cabin:experience-sync-changed',experienceChanged);window.removeEventListener(interviewPracticeQueueRepository.eventName,usageChanged)}},[])
+  useEffect(()=>{setTrainingProgress(loadSelfIntroductionProgress());const history=loadHomeInterviewHistory({loadSessions:loadInterviewSessions,loadAttempts:loadInterviewAttempts});setInterviewAttempts(history.attempts);setInterviewSessions(history.sessions);setSessionHistoryAvailable(history.available);const usageChanged=()=>setUsageRevision(v=>v+1);const experienceChanged=()=>setExperienceRevision(v=>v+1);window.addEventListener('cabin:training-sync-changed',usageChanged);window.addEventListener('cabin:application-local-changed',usageChanged);window.addEventListener('cabin:application-sync-changed',usageChanged);window.addEventListener('cabin:experience-sync-changed',experienceChanged);window.addEventListener(interviewPracticeQueueRepository.eventName,usageChanged);return()=>{window.removeEventListener('cabin:training-sync-changed',usageChanged);window.removeEventListener('cabin:application-local-changed',usageChanged);window.removeEventListener('cabin:application-sync-changed',usageChanged);window.removeEventListener('cabin:experience-sync-changed',experienceChanged);window.removeEventListener(interviewPracticeQueueRepository.eventName,usageChanged)}},[])
   useEffect(()=>{let active=true;const load=()=>void authService.currentUser().then(user=>getAirlineApplicationRepository(user).list()).then(items=>{if(active)setTrackedApplications(items)}).catch(()=>{});load();window.addEventListener('cabin:application-local-changed',load);window.addEventListener('cabin:application-sync-changed',load);return()=>{active=false;window.removeEventListener('cabin:application-local-changed',load);window.removeEventListener('cabin:application-sync-changed',load)}},[])
   useEffect(()=>{const applicationSaved=(event:Event)=>{const id=(event as CustomEvent<{answerId?:string}>).detail?.answerId;if(id)completeWeeklyTask({type:'application_answer',entityId:id,completed:true})};const experienceSaved=(event:Event)=>{const id=(event as CustomEvent<{experienceId?:string}>).detail?.experienceId;if(id)completeWeeklyTask({type:'experience_saved',entityId:id,completed:true})};window.addEventListener('cabin:application-answer-saved',applicationSaved);window.addEventListener('cabin:experience-saved',experienceSaved);return()=>{window.removeEventListener('cabin:application-answer-saved',applicationSaved);window.removeEventListener('cabin:experience-saved',experienceSaved)}},[activeWeeklyTask])
   useEffect(()=>{const load=()=>setSingleInterviewResume(singleInterviewResumeRepository.load());load();window.addEventListener('cabin:single-interview-resume-changed',load);return()=>window.removeEventListener('cabin:single-interview-resume-changed',load)},[])
@@ -105,8 +104,6 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const drillPlan=buildHomeDrillPlan(interviewRecommendation.topic)
   const resumableSession=findResumableSession(interviewSessions)
   const recentCompletedSessions=interviewSessions.filter(item=>item.status==='completed').sort((a,b)=>(b.completedAt??b.startedAt).localeCompare(a.completedAt??a.startedAt)).slice(0,3)
-  const recentGrowth=buildRecentInterviewGrowth(interviewSessions,interviewAttempts)
-  const weeklyInterviewActivity=buildWeeklyInterviewActivity(interviewSessions,interviewAttempts)
   const mockAttemptIds=new Set(interviewSessions.flatMap(session=>session.attemptIds))
   const singleInterviewHistory=sortSingleInterviewHistory(interviewAttempts.filter(attempt=>!mockAttemptIds.has(attempt.id)))
   const experienceCoverage=getExperienceCoverage()
@@ -120,7 +117,8 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const todayKey=localDateKey(new Date())
   const learningStore=useMemo(()=>learningAnalyticsRepository.load(),[learningRevision])
   const completedWeeklyTaskIds=weeklyCompletionIds(learningStore.routineCompletions)
-  const confirmedTodayTasks=incompleteWeeklyTasks(learningStore.confirmedWeeklyPlans.flatMap(plan=>plan.days).find(day=>day.date===todayKey)?.tasks??[],completedWeeklyTaskIds)
+  const allConfirmedTodayTasks=learningStore.confirmedWeeklyPlans.flatMap(plan=>plan.days).find(day=>day.date===todayKey)?.tasks??[]
+  const confirmedTodayTasks=incompleteWeeklyTasks(allConfirmedTodayTasks,completedWeeklyTaskIds)
   const applicationAnswers=listApplicationAnswers()
   const currentApplicationDraft=applicationAnswers.filter(answer=>answer.status==='draft'||answer.status==='structured').sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0]
   const selfIntroductionAttempts=loadSelfIntroductionAttempts()
@@ -136,6 +134,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   const learningActivities=buildLearningActivities().filter(activity=>!activity.id.startsWith('weekly:'))
   const latestWeakness=adaptiveWeaknesses.find(item=>item.state!=='resolved')
   const homeRealState=buildHomeRealState({diagnosis,activities:learningActivities,weeklyPracticeCount:weeklySummary.activityCount,upcoming:upcomingApplications[0],coachMessage:latestWeakness?.explanation??(learningActivities.length?'최근 완료한 연습이 학습 기록에 반영됐습니다. 다음 추천 훈련을 이어가 보세요.':undefined),coachOccurredAt:latestWeakness?.latestObservedAt,coachSource:latestWeakness?'연습 분석':undefined})
+  const homePresentation=deriveHomePresentationModel({plan:dailyPlan,weeklyCompleted:allConfirmedTodayTasks.filter(task=>completedWeeklyTaskIds.has(task.id)).length,weeklyTotal:allConfirmedTodayTasks.length,activityCount:weeklySummary.activityCount,streakDays:homeRealState.streakDays})
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -154,7 +153,6 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   function resumeSingleInterview(){const stored=singleInterviewResumeRepository.load();if(!stored)return;const restored=restoreSingleInterviewConfig(stored,{questionExists:id=>interviewQuestionById.has(id),airlineContextAllowed,experienceExists:id=>experienceRepository.load().experiences.some(item=>item.id===id)});const question=interviewQuestionById.get(stored.questionId);if(!restored||!question){setInvalidResume(true);return}setInvalidResume(false);setMockSession(null);setActiveWeeklyTask(restored.weeklyTaskContext??null);setActiveNav('interview');setPracticeConfig({question,...restored})}
   function startApplicationDrill(candidate:ApplicationInterviewDrillCandidate){setTrainingView('dashboard');setActiveNav('interview');startInterviewQuestion(candidate.question,undefined,candidate.selectedExperienceId,candidate.targetAirlineId,undefined,applicationDrillSourceContext(candidate))}
   function openSession(session:InterviewSession){const question=interviewQuestionById.get(session.questionIds[session.currentQuestionIndex]);if(!question)return;setActiveWeeklyTask(session.weeklyTaskContext??null);setMockSession(session);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId,languageHint:session.mode==='english'?'en':'ko'})}
-  function startHomeSession(count:3|5){const session=createInterviewSession({mode:'ai_interviewer',airlineId:interviewRecommendation.airlineId,count,questionIds:count===3?drillPlan.selectedQuestionIds:undefined});setInterviewSessions(loadInterviewSessions());openSession(session)}
   function weeklyContextForAction(action:DailyActionCandidate){if(!action.weeklyTaskId)return null;const plan=learningStore.confirmedWeeklyPlans.find(item=>item.days.some(day=>day.tasks.some(task=>task.id===action.weeklyTaskId))),task=plan?.days.flatMap(day=>day.tasks).find(item=>item.id===action.weeklyTaskId);if(!task)return null;const kind=action.target.kind==='mock_start'||action.target.kind==='mock_resume'?'mock':action.target.kind==='interview_question'?(action.target.queueItemId?'queue':'interview'):action.target.kind==='self_introduction'?'self_introduction':action.target.kind==='application_coach'?'application':action.target.kind==='experience_library'?'experience':undefined;return createWeeklyTaskContext(task,plan?.weekStart,kind)}
   function completeWeeklyTask(event:Parameters<typeof acceptsWeeklyCompletion>[1],override?:WeeklyTaskContext){const context=override??activeWeeklyTask;if(!acceptsWeeklyCompletion(context??undefined,event)||!context)return false;learningAnalyticsRepository.recordWeeklyTask({id:context.weeklyTaskId,name:context.title,minutes:context.estimatedMinutes,weekStart:context.weekStart,sourceCompletionId:event.entityId},context.relatedCapability);setLearningRevision(value=>value+1);setActiveWeeklyTask(null);return true}
   function startDailyAction(action:DailyActionCandidate,explicitWeeklyContext?:WeeklyTaskContext|null){
@@ -199,42 +197,24 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
         {activeNav === 'interview'&&!interviewCategory&&<InterviewPracticeQueuePanel onStartQuestion={startInterviewQuestion} onStartQueued={(question,item)=>startInterviewQuestion(question,undefined,undefined,item.airlineId,item.id)}/>}
 
         {activeNav === 'interview' ? (interviewCategory?<AirlineInterviewQuestionList category={interviewCategory} targetAirlineId={diagnosis?.primaryAirline} onBack={()=>setInterviewCategory(null)} onStart={startInterviewQuestion}/>:<>{singleInterviewResume&&<section className="px-5 pt-4"><div className="rounded-2xl border border-gold/40 bg-card p-4"><strong className="text-sm text-navy">진행 중인 단일 면접 연습이 있습니다.</strong><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={resumeSingleInterview} className="min-h-11 rounded-xl bg-navy text-sm font-bold text-ivory">이어서 연습</button><button type="button" onClick={()=>singleInterviewResumeRepository.clear()} className="min-h-11 rounded-xl border border-border text-sm font-bold text-navy">연습 종료</button></div>{invalidResume&&<p className="mt-2 text-xs text-coral">이 연습 질문을 더 이상 사용할 수 없습니다. 연습을 종료하고 질문을 다시 선택해 주세요.</p>}</div></section>}<div className="px-5 pt-4"><button onClick={()=>setMockInterviewOpen(true)} className="h-12 w-full rounded-2xl bg-navy text-sm font-bold text-ivory">모의면접 시작</button></div><MockInterviewSessionHistory onStart={()=>setMockInterviewOpen(true)} onResume={(session)=>{const question=interviewQuestionById.get(session.questionIds[session.currentQuestionIndex]);if(question){setMockSession(session);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId})}}} onView={(session)=>{setMockSession(session);setMockReport(session)}}/><InterviewPracticeHome attempts={singleInterviewHistory} onSelectCategory={setInterviewCategory} onStartQuestion={startInterviewQuestion} onOpenExperience={()=>setTrainingView('experience-library')} onViewAttempt={setSelectedInterviewResult} onRetakeAttempt={retakeSingleInterview}/></>) : activeNav === 'my' ? <main className="space-y-4 px-5 pb-8 pt-6"><AccountSummary onLogin={onLogin}/><section className="rounded-3xl border border-border bg-card p-6"><span className="eyebrow text-muted-foreground">MY PROFILE</span><h2 className="mt-3 text-xl font-bold text-navy">나의 준비 설정</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">목표와 진단 답변을 다시 확인하고 맞춤 루틴을 조정할 수 있어요.</p><button type="button" onClick={onEditDiagnosis} className="mt-6 h-12 w-full rounded-2xl border border-navy font-semibold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">진단 다시 하기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">지원 현황</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">지원 상태, 마감일과 면접 일정을 관리하세요.</p><button type="button" onClick={()=>setTrainingView('application-tracker')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">지원 일정 보기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">주간 리포트</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">실제 학습 기록과 역량 변화, 다음 주 추천 계획을 확인하세요.</p><button type="button" onClick={()=>setTrainingView('weekly-report')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">주간 리포트 보기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">나의 경험 저장소</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">저장한 경험은 여러 면접 질문에서 다시 활용할 수 있어요.</p><button type="button" onClick={()=>setTrainingView('experience-library')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">경험 저장소 열기</button></section></main> : <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-5 pb-8 pt-6 md:px-8 xl:grid xl:grid-cols-12 xl:items-start xl:gap-5 xl:px-10">
-          <section aria-labelledby="daily-plan-heading" className="grid gap-3 md:grid-cols-2 xl:col-span-12 xl:grid-cols-12">
-            <div className="md:col-span-2 xl:col-span-7"><DailyActionCard action={dailyPlan.primary} primary onStart={()=>startDailyAction(dailyPlan.primary)}/></div>
-            <div className="grid gap-3 sm:grid-cols-2 md:col-span-2 xl:col-span-5">
-              {dailyPlan.secondary.map(action=><DailyActionCard key={action.id} action={action} onStart={()=>startDailyAction(action)}/>)}
-              <div className="rounded-2xl border border-border bg-secondary/50 p-4 sm:col-span-2" aria-labelledby="daily-plan-heading"><div className="flex items-center justify-between gap-3"><div><span className="eyebrow text-muted-foreground">DAILY PLAN</span><h2 id="daily-plan-heading" className="mt-1 text-sm font-bold text-navy">오늘 {dailyPlan.completedCount}/{dailyPlan.totalCount} 완료</h2></div><span className="text-xs text-muted-foreground">실제 완료 기록 기준</span></div></div>
+          <section aria-labelledby="daily-plan-heading" className="grid gap-3 xl:col-span-12 xl:grid-cols-12">
+            <h1 id="daily-plan-heading" className="sr-only">오늘 할 일</h1>
+            <div className="xl:col-span-7"><DailyActionCard action={homePresentation.primary} primary onStart={()=>startDailyAction(homePresentation.primary)}/></div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:col-span-5">
+              {homePresentation.resume?<div className="sm:col-span-2"><DailyActionCard action={homePresentation.resume} onStart={()=>startDailyAction(homePresentation.resume!)}/></div>:null}
+              {homePresentation.secondary.map(action=><DailyActionCard key={action.id} action={action} onStart={()=>startDailyAction(action)}/>)}
             </div>
           </section>
-          <section aria-labelledby="today-interview-heading" className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:col-span-8">
-            <div className="home-primary-interview rounded-3xl bg-navy p-6 text-ivory shadow-sm">
-              <span className="eyebrow text-gold">AI INTERVIEW DETAIL</span>
-                <h1 id="today-interview-heading" className="mt-2 text-2xl font-bold">AI 면접 집중 훈련</h1>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-white/10 px-3 py-1.5">Quick 5</span><span className="rounded-full bg-white/10 px-3 py-1.5">약 8분</span>{targetAirlineId?<span className="rounded-full bg-white/10 px-3 py-1.5">{targetAirlineId} 준비</span>:null}</div>
-                <p className="mt-4 text-sm leading-relaxed text-ivory/75">{interviewAttempts.length?interviewRecommendation.reason:'첫 모의면접을 바로 시작해보세요.'}</p>
-                <p className="mt-2 text-sm font-semibold text-gold">{interviewRecommendation.focus.slice(0,3).join(' · ')}</p>
-                <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={()=>startHomeSession(5)} className="h-12 rounded-2xl bg-coral font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">지금 시작</button><button type="button" onClick={()=>setMockInterviewOpen(true)} className="h-12 rounded-2xl border border-white/25 font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">설정하고 시작</button></div>
-            </div>
-            <div className="rounded-3xl border border-border bg-card p-6">
-              <span className="eyebrow text-muted-foreground">RECENT CHANGE</span>
-              <h2 className="mt-2 text-lg font-bold text-navy">최근 변화</h2>
-              {!sessionHistoryReady?<div aria-label="면접 기록 불러오는 중" className="mt-4 h-24 animate-pulse rounded-2xl bg-secondary"/>:recentGrowth.length?<div className="mt-4 space-y-2">{recentGrowth.map(item=><div key={item.label} className="flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2 text-sm"><span className="text-midnight">{item.label}</span><strong className="text-navy">{item.before} → {item.after}</strong></div>)}</div>:<p className="mt-4 text-sm leading-relaxed text-muted-foreground">모의면접을 2번 이상 완료하면 최근 변화가 표시됩니다.</p>}
-            </div>
+          <section aria-labelledby="weekly-progress-heading" className="grid gap-3 md:grid-cols-2 xl:col-span-12">
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="eyebrow text-muted-foreground">THIS WEEK</span><h2 id="weekly-progress-heading" className="mt-1 text-base font-bold text-navy">이번 주 진행</h2>{homePresentation.weeklyProgress?<p className="mt-3 text-sm text-midnight">주간 루틴 <strong>{homePresentation.weeklyProgress.completed}/{homePresentation.weeklyProgress.total}</strong> 완료</p>:<p className="mt-3 text-sm text-muted-foreground">확정된 주간 루틴이 없습니다.</p>}</div>
+            <div className="rounded-2xl border border-border bg-card p-4"><span className="eyebrow text-muted-foreground">LEARNING ACTIVITY</span><h2 className="mt-1 text-base font-bold text-navy">학습 활동</h2><p className="mt-3 text-sm text-midnight">이번 주 실제 활동 <strong>{homePresentation.activityCount}회</strong> · 연속 기록 <strong>{homePresentation.streakLabel}</strong></p></div>
           </section>
-
-          {(()=>{const openItems=interviewPracticeQueueRepository.listOpen(),item=openItems[0];if(!item)return null;const question=resolveInterviewQuestion(item.questionId,item.airlineId);return question?<button type="button" onClick={()=>{setActiveNav('interview');startInterviewQuestion(question,undefined,undefined,item.airlineId,item.id)}} className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left xl:col-span-12"><span><strong className="block text-sm text-navy">재연습할 질문 {openItems.length}개</strong><span className="mt-1 block text-xs text-muted-foreground">{question.shortTitle}</span></span><span className="text-sm font-bold text-navy">연습 →</span></button>:null})()}
-
-          <section className="grid gap-4 md:grid-cols-2 xl:col-span-8">
-            <div className="rounded-3xl border border-border bg-card p-5">
-              <span className="eyebrow text-gold">TODAY'S DRILL</span><h2 className="mt-2 text-lg font-bold text-navy">{interviewRecommendation.title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{interviewRecommendation.reason}</p><button type="button" onClick={()=>startHomeSession(3)} className="mt-4 h-11 w-full rounded-xl bg-navy font-bold text-ivory">3문항 연습</button>
-            </div>
-            <div className="rounded-3xl border border-border bg-card p-5"><span className="eyebrow text-muted-foreground">THIS WEEK</span><h2 className="mt-2 text-lg font-bold text-navy">이번 주 면접 활동</h2><div className="mt-4 grid grid-cols-3 gap-2 text-center">{[['모의면접',weeklyInterviewActivity.sessions],['답변',weeklyInterviewActivity.answers],['재도전',weeklyInterviewActivity.retakes]].map(([label,value])=><div key={String(label)} className="rounded-xl bg-secondary/60 px-2 py-3"><strong className="block text-xl text-navy">{value}</strong><span className="mt-1 block text-xs text-muted-foreground">{label}</span></div>)}</div></div>
-          </section>
-          <section className="rounded-3xl border border-border bg-card p-5 xl:col-span-4 xl:col-start-9 xl:row-start-1">
+          {latestWeakness?<section className="rounded-3xl border border-gold/30 bg-card p-5 xl:col-span-8"><span className="eyebrow text-gold">COACH SIGNAL</span><h2 className="mt-2 text-lg font-bold text-navy">최근 약점 · {latestWeakness.title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{latestWeakness.explanation}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(latestWeakness.latestObservedAt).toLocaleDateString('ko-KR')} · 실제 연습 분석</p></section>:null}
+          {upcomingApplications.length?<section className="rounded-3xl border border-border bg-card p-5 xl:col-span-4">
             <div className="flex items-start justify-between gap-3"><div><span className="eyebrow text-gold">APPLICATIONS</span><h2 className="mt-2 text-lg font-bold text-navy">다가오는 지원 일정</h2></div><button type="button" onClick={()=>setTrainingView('application-tracker')} className="text-sm font-bold text-navy">전체 보기 →</button></div>
-            {upcomingApplications.length?<div className="mt-4 space-y-2">{upcomingApplications.map(({application,importantDate})=><button type="button" key={application.id} onClick={()=>setTrainingView('application-tracker')} className="flex w-full items-center justify-between rounded-2xl bg-secondary/60 p-3 text-left"><span><strong className="block text-sm text-navy">{application.airlineNameSnapshot}</strong><span className="mt-1 block text-xs text-muted-foreground">{importantDate.kind==='interview'?'면접':'지원 마감'} · {new Date(`${importantDate.date.slice(0,10)}T00:00:00`).toLocaleDateString('ko-KR')}</span></span><strong className="text-base text-navy">{importantDate.dday}</strong></button>)}</div>:<div className="mt-4 rounded-2xl bg-secondary/60 p-4"><p className="text-sm text-muted-foreground">등록된 다가오는 일정이 없어요.</p><button type="button" onClick={()=>setTrainingView('application-tracker')} className="mt-2 text-sm font-bold text-navy">첫 지원 일정 추가 →</button></div>}
+            <div className="mt-4 space-y-2">{upcomingApplications.slice(0,1).map(({application,importantDate})=><button type="button" key={application.id} onClick={()=>setTrainingView('application-tracker')} className="flex w-full items-center justify-between rounded-2xl bg-secondary/60 p-3 text-left"><span><strong className="block text-sm text-navy">{application.airlineNameSnapshot}</strong><span className="mt-1 block text-xs text-muted-foreground">{importantDate.kind==='interview'?'면접':'지원 마감'} · {new Date(`${importantDate.date.slice(0,10)}T00:00:00`).toLocaleDateString('ko-KR')}</span></span><strong className="text-base text-navy">{importantDate.dday}</strong></button>)}</div>
             {upcomingApplications.filter(item=>item.importantDate.days<=7).length?<p className="mt-3 text-xs text-muted-foreground">이번 주 지원 일정 {upcomingApplications.filter(item=>item.importantDate.days<=7).length}개</p>:null}
-          </section>
+          </section>:null}
           <section className="rounded-3xl border border-border bg-card p-5 xl:col-span-8">
             <span className="eyebrow text-muted-foreground">TODAY'S EXPERIENCE</span>
             <h2 className="mt-2 text-lg font-bold text-navy">오늘의 경험 준비</h2>
@@ -280,7 +260,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
               </div>
             </div>
 
-            {homeRealState.readiness !== undefined && homeRealState.skills ? <><ReadinessGauge value={readinessSnapshot.currentReadinessScore} /><div className="mt-6 border-t border-border pt-6"><SkillProgressList skills={homeRealState.skills} /></div></> : <div className="rounded-2xl bg-secondary/60 p-5"><strong className="text-base text-navy">준비도 데이터가 아직 없습니다.</strong><p className="mt-2 text-sm text-muted-foreground">첫 진단을 완료하면 실제 응답을 기준으로 준비 현황이 표시됩니다.</p>{onEditDiagnosis ? <button type="button" onClick={onEditDiagnosis} className="mt-4 text-sm font-bold text-navy">첫 진단 시작 →</button> : null}</div>}
+            {homeRealState.readiness !== undefined && homeRealState.skills ? <><ReadinessGauge value={readinessSnapshot.currentReadinessScore} /><div className="mt-6 border-t border-border pt-6"><SkillProgressList skills={homeRealState.skills.slice(0,3)} /></div></> : <div className="rounded-2xl bg-secondary/60 p-5"><strong className="text-base text-navy">준비도 데이터가 아직 없습니다.</strong><p className="mt-2 text-sm text-muted-foreground">첫 진단을 완료하면 실제 응답을 기준으로 준비 현황이 표시됩니다.</p>{onEditDiagnosis ? <button type="button" onClick={onEditDiagnosis} className="mt-4 text-sm font-bold text-navy">첫 진단 시작 →</button> : null}</div>}
 
             <div className="mt-5 flex gap-3 rounded-2xl bg-secondary/60 p-4">
               <Lightbulb className="h-[18px] w-[18px] shrink-0 text-gold" strokeWidth={2} />
@@ -299,11 +279,9 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
             onTaskStart={handleTaskStart}
           /></div>
 
-          <div className="xl:col-span-4"><SecondaryStats streakDays={homeRealState.streakDays} weeklyPracticeCount={homeRealState.weeklyPracticeCount} upcoming={homeRealState.upcoming} /></div>
-
           <button type="button" onClick={()=>setTrainingView('weekly-report')} className="rounded-2xl border border-border bg-card p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold xl:col-span-4"><span className="eyebrow text-gold">WEEKLY REPORT</span><div className="mt-3 flex items-end justify-between"><div><strong className="text-xl text-navy">{weeklySummary.totalMinutes}분</strong><p className="mt-1 text-sm text-muted-foreground">이번 주 · {weeklySummary.activeDays}일 활동</p></div><span className="text-sm font-bold text-navy">리포트 보기 →</span></div></button>
 
-          <div className="xl:col-span-8"><CoachFeedbackCard message={homeRealState.recentCoaching?.message} timeLabel={homeRealState.recentCoaching?.timeLabel} /></div>
+          {!latestWeakness&&homeRealState.recentCoaching?<div className="xl:col-span-8"><CoachFeedbackCard message={homeRealState.recentCoaching.message} timeLabel={homeRealState.recentCoaching.timeLabel} /></div>:null}
         </main>}
       </div>
 
