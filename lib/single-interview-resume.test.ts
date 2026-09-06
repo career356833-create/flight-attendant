@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { InterviewAttempt, InterviewPracticeConfig, InterviewQuestion } from './interview-practice-data'
-import { canCompareInterviewRetake, normalizeSingleInterviewResume, restoreSingleInterviewConfig, resumeFromConfig, sortSingleInterviewHistory } from './single-interview-resume'
+import { canCompareInterviewRetake, interviewReturnTargetForSource, normalizeSingleInterviewResume, restoreSingleInterviewConfig, resumeFromConfig, sortSingleInterviewHistory } from './single-interview-resume'
 
 const question={id:'be1',category:'behavioral_experience',prompt:'질문',shortTitle:'질문',difficulty:'beginner',targetCapabilities:['interview_communication'],evaluationRubric:{keys:[],guidance:''},localeKey:'test'} as InterviewQuestion
 const config:InterviewPracticeConfig={question,attemptType:'first',languageHint:'en',targetAirlineId:'emirates',selectedExperienceId:'exp-1',sourceContext:{source:'application_drill',applicationAnswerId:'answer-1'}}
@@ -45,3 +45,8 @@ test('comparison requires previousAttemptId lineage',()=>assert.equal(canCompare
 test('comparison requires current actual transcript',()=>assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:'attempt-1',transcriptIntegrity:{mode:'fallback',isActualTranscription:false}}),attempt()),false))
 test('comparison requires previous actual transcript',()=>assert.equal(canCompareInterviewRetake(attempt({id:'attempt-2',previousAttemptId:'attempt-1'}),attempt({transcriptIntegrity:{mode:'fallback',isActualTranscription:false}})),false))
 test('result history selection is identity preserving',()=>{const saved=attempt();assert.equal(sortSingleInterviewHistory([saved])[0],saved)})
+test('weekly source returns to the weekly report',()=>assert.equal(interviewReturnTargetForSource('weekly_task'),'weekly-report'))
+test('direct source returns to interview',()=>assert.equal(interviewReturnTargetForSource('direct'),'interview'))
+test('daily source keeps the existing interview return',()=>assert.equal(interviewReturnTargetForSource('daily_plan'),'interview'))
+test('mock report source keeps the existing interview return',()=>assert.equal(interviewReturnTargetForSource('mock_report'),'interview'))
+test('missing source has a safe interview default',()=>assert.equal(interviewReturnTargetForSource(),'interview'))
