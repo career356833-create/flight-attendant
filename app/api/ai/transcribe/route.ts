@@ -1,11 +1,12 @@
 import {NextResponse} from 'next/server'
 import {AI_LIMITS} from '@/lib/ai/config'
-import {safeTranscriptionFailureDiagnostic,transcribeWithOpenAi} from '@/lib/ai/openai-transcription'
+import {safeTranscriptionFailureDiagnostic,transcribeWithOpenAi,type SafeTranscriptionResponseObservation} from '@/lib/ai/openai-transcription'
 
 export const runtime='nodejs'
 export const maxDuration=60
 
 const responseStatus=(code?:string)=>code==='not_configured'?503:code==='consent_required'?403:code==='audio_too_large'?413:code==='audio_format_unsupported'||code==='invalid_request'?400:code==='rate_limited'?429:code==='timeout'?504:code==='provider_unavailable'?502:422
+const warnSafely=(value:unknown)=>{try{console.warn(JSON.stringify(value))}catch{/* logging must not change the route response */}}
 
 export async function POST(request:Request){
   let requestId='unknown'
@@ -22,9 +23,9 @@ export async function POST(request:Request){
     const language=form.get('languageHint')==='en'?'en':'ko'
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55_000)
     try{
-      const started=Date.now()
-      const result=await transcribeWithOpenAi({file,requestId,language,durationSeconds,apiKey:process.env.OPENAI_API_KEY,model:process.env.OPENAI_STT_MODEL||'gpt-transcribe',signal:controller.signal})
-      if(!result.ok)console.warn('[api/ai/transcribe] failed',safeTranscriptionFailureDiagnostic({errorCode:result.error.code,mime:file.type,bytes:file.size,elapsedMs:Date.now()-started}))
+      const started=Date.now();let observation:SafeTranscriptionResponseObservation|undefined
+      const result=await transcribeWithOpenAi({file,requestId,language,durationSeconds,apiKey:process.env.OPENAI_API_KEY,model:process.env.OPENAI_STT_MODEL||'gpt-transcribe',signal:controller.signal,onSafeResponseObservation:value=>{observation=value}})
+      if(!result.ok)warnSafely({event:result.error.code==='empty_transcript'?'stt_empty_transcript':'stt_transcription_failed',...safeTranscriptionFailureDiagnostic({errorCode:result.error.code,mime:file.type,bytes:file.size,elapsedMs:Date.now()-started,observation})})
       return NextResponse.json(result,{status:result.ok?200:responseStatus(result.error.code)})
     }finally{clearTimeout(timer)}
   }catch{return NextResponse.json({ok:false,requestId,providerId:'server',error:{code:'invalid_request',message:'Invalid multipart transcription request',retryable:false},fallbackAvailable:false},{status:400})}
