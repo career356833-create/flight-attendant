@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {deduplicateTranscription} from './ai-service'
-import {transcribeWithOpenAi} from './openai-transcription'
+import {safeTranscriptionFailureDiagnostic,transcribeWithOpenAi} from './openai-transcription'
 import {resolveAudioProcessingConsent,serverSttProvider} from './providers/server-stt-provider'
 import {normalizeStoredAiConfig} from './config'
 import type {AiResponse,TranscriptionResult} from './types'
@@ -63,4 +63,11 @@ test('consent prompt denial does not persist while approval persists once',()=>{
   assert.equal(persisted,1)
   assert.equal(resolveAudioProcessingConsent(true,()=>{throw new Error('prompt repeated')},()=>{persisted++}),true)
   assert.equal(persisted,1)
+})
+
+test('failure diagnostics expose only safe operational metadata',()=>{
+  const diagnostic=safeTranscriptionFailureDiagnostic({errorCode:'empty_transcript',mime:'audio/webm;codecs=opus',bytes:4096,elapsedMs:812})
+  assert.deepEqual(diagnostic,{provider:'openai',errorCategory:'empty_transcript',mime:'audio/webm;codecs=opus',bytes:4096,elapsedMs:812})
+  const fields=Object.keys(diagnostic)
+  for(const forbidden of ['transcript','audioBlob','authorization','apiKey','secret'])assert.equal(fields.includes(forbidden),false)
 })

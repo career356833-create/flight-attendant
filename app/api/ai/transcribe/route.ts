@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server'
 import {AI_LIMITS} from '@/lib/ai/config'
-import {transcribeWithOpenAi} from '@/lib/ai/openai-transcription'
+import {safeTranscriptionFailureDiagnostic,transcribeWithOpenAi} from '@/lib/ai/openai-transcription'
 
 export const runtime='nodejs'
 export const maxDuration=60
@@ -22,7 +22,9 @@ export async function POST(request:Request){
     const language=form.get('languageHint')==='en'?'en':'ko'
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55_000)
     try{
+      const started=Date.now()
       const result=await transcribeWithOpenAi({file,requestId,language,durationSeconds,apiKey:process.env.OPENAI_API_KEY,model:process.env.OPENAI_STT_MODEL||'gpt-transcribe',signal:controller.signal})
+      if(!result.ok)console.warn('[api/ai/transcribe] failed',safeTranscriptionFailureDiagnostic({errorCode:result.error.code,mime:file.type,bytes:file.size,elapsedMs:Date.now()-started}))
       return NextResponse.json(result,{status:result.ok?200:responseStatus(result.error.code)})
     }finally{clearTimeout(timer)}
   }catch{return NextResponse.json({ok:false,requestId,providerId:'server',error:{code:'invalid_request',message:'Invalid multipart transcription request',retryable:false},fallbackAvailable:false},{status:400})}

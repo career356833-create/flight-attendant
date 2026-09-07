@@ -4,6 +4,7 @@ export const OPENAI_TRANSCRIPTION_ENDPOINT='https://api.openai.com/v1/audio/tran
 export const DEFAULT_OPENAI_STT_MODEL='gpt-transcribe'
 
 type TranscriptionInput={file:File;requestId:string;language:'ko'|'en';durationSeconds?:number;apiKey?:string;model?:string;signal?:AbortSignal;fetcher?:typeof fetch}
+export function safeTranscriptionFailureDiagnostic(input:{errorCode:AiErrorCode;mime:string;bytes:number;elapsedMs:number}){return{provider:'openai',errorCategory:input.errorCode,mime:input.mime||'unknown',bytes:Math.max(0,input.bytes),elapsedMs:Math.max(0,input.elapsedMs)}}
 const failed=(requestId:string,code:AiErrorCode,message:string):AiResponse<TranscriptionResult>=>({ok:false,requestId,providerId:'server',error:{code,message,retryable:code==='timeout'||code==='network_error'||code==='provider_unavailable'},fallbackAvailable:false})
 const errorCode=(status:number):AiErrorCode=>status===401||status===403?'provider_unavailable':status===429?'rate_limited':status>=500?'provider_unavailable':'invalid_request'
 
