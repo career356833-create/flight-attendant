@@ -50,11 +50,15 @@ export function SelfIntroductionFlow({
   onExit,
   onComplete,
   initialChallengeTarget,
+  weeklyReturnAttemptId,
+  onWeeklyReturn,
 }: {
   targetAirlineId?: string;
   onExit: () => void;
   onComplete: (attempt: SelfIntroductionAttempt) => void;
   initialChallengeTarget?: SelfIntroductionChallengeSeconds;
+  weeklyReturnAttemptId?: string;
+  onWeeklyReturn?: () => void;
 }) {
   const [step, setStep] = useState<SelfIntroductionStep>("intro");
   const [micStatus, setMicStatus] = useState<
@@ -466,7 +470,8 @@ export function SelfIntroductionFlow({
         attempt={attempt}
         history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
         onBack={selectedHistoryAttemptId ? () => navigateFromResult("back") : undefined}
-        onHome={() => navigateFromResult("home")}
+        onHome={weeklyReturnAttemptId === attempt.id && !selectedHistoryAttemptId && onWeeklyReturn ? onWeeklyReturn : () => navigateFromResult("home")}
+        returnLabel={weeklyReturnAttemptId === attempt.id && !selectedHistoryAttemptId ? "주간 계획으로 돌아가기" : undefined}
         onRetry={retry}
         onSelectHistory={revisitHistory}
         onRetakeSameConditions={() => retakeHistory(attempt)}

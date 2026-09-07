@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { WeeklyReturnAction } from "@/components/weekly-report/weekly-return-action";
 import {
   ArrowLeft,
   ArrowUp,
@@ -1147,12 +1148,14 @@ export function ApplicationAnswerDetail({
   onVersions,
   onConvert,
   onPractice,
+  onWeeklyReturn,
 }: {
   answer: ApplicationAnswer;
   onBack: () => void;
   onVersions: () => void;
   onConvert: () => void;
   onPractice: (candidate: ApplicationInterviewDrillCandidate) => void;
+  onWeeklyReturn?: () => void;
 }) {
   const version = listAnswerVersions(answer.id).find(
     (v) => v.id === answer.currentVersionId,
@@ -1177,6 +1180,7 @@ export function ApplicationAnswerDetail({
       "범용";
   return (
     <Screen title={answer.title} onBack={onBack}>
+      {onWeeklyReturn && <div className="mb-4"><WeeklyReturnAction onReturn={onWeeklyReturn} /></div>}
       <div className={card}>
         <span className="text-xs font-semibold text-gold">
           {airlineName} · {t.documents[answer.documentType]}
@@ -1256,6 +1260,8 @@ export function ApplicationCoach({
   onOpenExperience,
   onPractice,
   initialAirlineId,
+  weeklyReturnAnswerId,
+  onWeeklyReturn,
 }: {
   onExit: () => void;
   onOpenExperience: () => void;
@@ -1263,6 +1269,8 @@ export function ApplicationCoach({
     candidate: ApplicationInterviewDrillCandidate,
   ) => void;
   initialAirlineId?: string;
+  weeklyReturnAnswerId?: string;
+  onWeeklyReturn?: () => void;
 }) {
   const [step, setStep] = useState<Step>("home"),
     [saved, setSaved] = useState<ApplicationAnswer[]>([]),
@@ -1492,6 +1500,7 @@ export function ApplicationCoach({
     return (
       <ApplicationAnswerDetail
         answer={current}
+        onWeeklyReturn={weeklyReturnAnswerId === current.id ? onWeeklyReturn : undefined}
         onBack={() => setStep("home")}
         onVersions={() => setStep("versions")}
         onConvert={() => setStep("convert")}
