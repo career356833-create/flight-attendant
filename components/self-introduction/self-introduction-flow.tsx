@@ -35,6 +35,7 @@ import { runPronunciationAnalysis } from "@/lib/ai/pronunciation-flow";
 import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfIntroductionPrompt, type SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import { sameConditionRetake, sortSelfIntroductionHistory } from "@/lib/self-introduction-history";
 import { resolveSelfIntroductionResultNavigation } from "@/lib/self-introduction-navigation";
+import { useMicrophoneCheck } from "@/components/interview-practice/use-microphone-check";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -61,10 +62,8 @@ export function SelfIntroductionFlow({
   onWeeklyReturn?: () => void;
 }) {
   const [step, setStep] = useState<SelfIntroductionStep>("intro");
-  const [micStatus, setMicStatus] = useState<
-    "checking" | "ready" | "denied" | "mock"
-  >("checking");
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const mic = useMicrophoneCheck();
+  const { status: micStatus, stream } = mic;
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>();
@@ -91,15 +90,10 @@ export function SelfIntroductionFlow({
   const airlineContextTags = getSelfIntroductionAirlineContext(selectedAirlineId)?.publishedInterviewQuestion.flatMap((question) => question.competencyTags);
   const selfIntroRecommendations = recommendExperiencesForSelfIntroduction(experiences, airlineContextTags?.length ? { competencyTags: airlineContextTags, airlineName: airlineById.get(selectedAirlineId!)?.name } : undefined);
 
-  useEffect(
-    () => () => {
-      aiRequest.current?.abort();
-      audioMonitor.current?.finish();
-      stream?.getTracks().forEach((track) => track.stop());
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-    },
-    [stream, audioUrl],
-  );
+  useEffect(() => () => {
+    aiRequest.current?.abort();
+    audioMonitor.current?.finish();
+  }, []);
   useEffect(() => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -112,33 +106,6 @@ export function SelfIntroductionFlow({
     return () => clearInterval(timer);
   }, [step, paused]);
 
-  async function checkMicrophone() {
-    setMicStatus("checking");
-    if (
-      !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === "undefined"
-    ) {
-      setMicStatus("mock");
-      return;
-    }
-    try {
-      const nextStream = await Promise.race([
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Microphone permission timeout")),
-            1500,
-          ),
-        ),
-      ]);
-      stream?.getTracks().forEach((track) => track.stop());
-      setStream(nextStream);
-      setMicStatus("ready");
-    } catch {
-      setMicStatus("denied");
-    }
-  }
-
   function beginRecording(forceMock = false) {
     setElapsed(0);
     setPaused(false);
@@ -147,6 +114,12 @@ export function SelfIntroductionFlow({
     chunks.current = [];
     completedAudioMetrics.current = undefined;
     if (!forceMock && stream && typeof MediaRecorder !== "undefined") {
+      const track = stream.getAudioTracks()[0];
+      if (!track || track.readyState === "ended" || track.muted) {
+        void mic.check(mic.selectedDeviceId, true);
+        setStep("microphone_check");
+        return;
+      }
       try {
         audioMonitor.current = createInterviewAudioMonitor(stream);
         const next = new MediaRecorder(stream);
@@ -161,10 +134,7 @@ export function SelfIntroductionFlow({
         };
         next.start();
         setRecorder(next);
-      } catch {
-        setMicStatus("mock");
-        setRecorder(null);
-      }
+      } catch { setRecorder(null); }
     } else setRecorder(null);
     setStep("recording");
   }
@@ -345,7 +315,7 @@ export function SelfIntroductionFlow({
     setBlob(null);
     setAudioUrl(undefined);
     setStep("microphone_check");
-    void checkMicrophone();
+    void mic.check();
   }
 
   function navigateFromResult(action: "back" | "home") {
@@ -415,7 +385,7 @@ export function SelfIntroductionFlow({
         }
         onStart={() => {
           setStep("microphone_check");
-          void checkMicrophone();
+          void mic.check();
         }}
         onLater={onExit}
         history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
@@ -426,8 +396,16 @@ export function SelfIntroductionFlow({
     return (
       <MicrophoneCheck
         status={micStatus}
-        level={micStatus === "ready" ? 68 : 12}
-        onCheck={() => void checkMicrophone()}
+        level={mic.level}
+        deviceLabel={mic.deviceLabel}
+        devices={mic.devices}
+        selectedDeviceId={mic.selectedDeviceId}
+        signalState={mic.signalState}
+        sampling={mic.sampling}
+        canStart={mic.canStart}
+        onCheck={mic.retest}
+        onDeviceChange={mic.selectDevice}
+        onContinueLowSignal={mic.continueWithLowSignal}
         onStart={() => beginRecording(micStatus !== "ready")}
         onTextPractice={() => beginRecording(true)}
         onBack={() => setStep("intro")}

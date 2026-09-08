@@ -189,19 +189,46 @@ export function SelfIntroductionIntro({
 export function MicrophoneCheck({
   status,
   level,
+  deviceLabel,
+  devices = [],
+  selectedDeviceId,
+  signalState,
+  sampling = false,
+  canStart = false,
   onCheck,
+  onDeviceChange,
+  onContinueLowSignal,
   onStart,
   onTextPractice,
   onBack,
 }: {
   status: "checking" | "ready" | "denied" | "mock";
   level: number;
+  deviceLabel?: string;
+  devices?: Array<{ deviceId: string; label: string }>;
+  selectedDeviceId?: string;
+  signalState?: "NO_SIGNAL" | "LOW_SIGNAL" | "USABLE_SIGNAL";
+  sampling?: boolean;
+  canStart?: boolean;
   onCheck: () => void;
+  onDeviceChange?: (deviceId: string) => void;
+  onContinueLowSignal?: () => void;
   onStart: () => void;
   onTextPractice: () => void;
   onBack: () => void;
 }) {
-  const ready = status === "ready" || status === "mock";
+  const ready = status === "mock" || (status === "ready" && canStart);
+  const stateText = sampling
+    ? "평소 목소리로 말해 주세요"
+    : signalState === "NO_SIGNAL"
+      ? "입력 없음"
+      : signalState === "LOW_SIGNAL"
+        ? "입력이 작음"
+        : signalState === "USABLE_SIGNAL"
+          ? "입력 확인됨"
+          : status === "ready"
+            ? "확인 대기"
+            : "확인 중";
   return (
     <DiagnosisFrame
       title="녹음 준비"
@@ -214,9 +241,12 @@ export function MicrophoneCheck({
               답변 시작
             </button>
           ) : (
-            <button className={primary} onClick={onCheck}>
-              다시 확인
+            <button className={primary} onClick={onCheck} disabled={status === "checking" || sampling}>
+              {sampling ? "입력 확인 중" : "다시 테스트"}
             </button>
+          )}
+          {status === "ready" && signalState === "LOW_SIGNAL" && !canStart && onContinueLowSignal && (
+            <button className={secondary} onClick={onContinueLowSignal}>그래도 계속</button>
           )}
           {status === "denied" && (
             <button className={secondary} onClick={onTextPractice}>
@@ -229,17 +259,16 @@ export function MicrophoneCheck({
       <div className="space-y-3">
         {[
           [
-            "마이크",
+            "현재 마이크",
             status === "ready"
-              ? "사용 가능"
+              ? deviceLabel || "사용 가능"
               : status === "denied"
                 ? "권한 필요"
                 : status === "mock"
                   ? "목업 모드"
                   : "확인 중",
           ],
-          ["주변 소음", "양호"],
-          ["입력 상태", ready ? "정상" : "확인 중"],
+          ["입력 상태", stateText],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -250,18 +279,39 @@ export function MicrophoneCheck({
           </div>
         ))}
       </div>
+      {devices.length > 1 && onDeviceChange && (
+        <label className="mt-4 block text-sm font-semibold text-navy">
+          마이크 선택
+          <select
+            value={selectedDeviceId || ""}
+            onChange={(event) => onDeviceChange(event.target.value)}
+            className="mt-2 min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-midnight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            {devices.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+          </select>
+        </label>
+      )}
       <div className="mt-5 rounded-2xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
           <span>입력 레벨</span>
-          <span>{ready ? "정상" : "대기"}</span>
+          <span aria-live="polite">{stateText}</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-secondary">
           <div
             className="h-full rounded-full bg-teal transition-all"
-            style={{ width: `${Math.max(8, level)}%` }}
+            style={{ width: `${Math.max(2, level)}%` }}
           />
         </div>
       </div>
+      {status === "ready" && !sampling && signalState === "NO_SIGNAL" && (
+        <p role="alert" className="mt-4 rounded-2xl bg-coral/10 p-4 text-sm leading-relaxed text-midnight">마이크 입력이 감지되지 않습니다. 다른 마이크를 선택하거나 Windows·브라우저 입력 장치와 음소거 상태를 확인해 주세요.</p>
+      )}
+      {status === "ready" && !sampling && signalState === "LOW_SIGNAL" && (
+        <p role="status" className="mt-4 rounded-2xl bg-gold/15 p-4 text-sm leading-relaxed text-midnight">마이크 입력이 너무 작습니다. 마이크를 가까이 두거나 입력 볼륨과 다른 마이크를 확인해 주세요.</p>
+      )}
+      {status === "ready" && signalState === "USABLE_SIGNAL" && (
+        <p role="status" className="mt-4 rounded-2xl bg-teal/10 p-4 text-sm text-midnight">마이크 입력이 확인됐습니다.</p>
+      )}
       <div className="mt-5 flex gap-3 rounded-2xl bg-secondary/60 p-4">
         <ShieldCheck className="h-5 w-5 shrink-0 text-teal" />
         <p className="whitespace-pre-line text-sm leading-relaxed text-midnight">
