@@ -63,7 +63,7 @@ export function AuthScreen({onBack,onAuthenticated,initialOAuthError}:{onBack:()
   return <div className="grid h-full bg-background md:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]">
     <aside className="relative hidden overflow-hidden bg-navy p-12 text-ivory md:flex md:flex-col md:justify-between" aria-label="CABIN 소개">
       <div className="absolute -right-24 top-1/2 h-[420px] w-[300px] -translate-y-1/2 rounded-[48%] border border-white/15 bg-gradient-to-br from-sky/20 via-white/5 to-transparent shadow-[inset_0_0_70px_rgba(220,230,236,0.12)]" aria-hidden="true"/>
-      <div className="relative"><span className="text-xs font-bold tracking-[0.2em] text-gold">CABIN</span><p className="mt-3 text-xl font-bold">AI Career Coach</p></div>
+      <div className="relative"><span className="text-xs font-bold tracking-[0.2em] text-gold">CABIN</span><p className="mt-3 text-xl font-bold">Cabin Career Coach</p></div>
       <div className="relative max-w-xl"><p className="text-4xl font-bold leading-tight">준비한 경험이<br/>면접의 자신감이 되도록.</p><p className="mt-5 max-w-md text-base leading-7 text-ivory/65">면접, 자기소개, 지원서를 하나의 준비 흐름으로 연결합니다.</p></div>
       <p className="relative text-xs text-ivory/45">SECURE CLOUD SYNC</p>
     </aside>

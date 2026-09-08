@@ -58,6 +58,7 @@ import {
 } from "@/lib/application-interview-drill";
 import { loadInterviewAttempts } from "@/lib/interview-practice-data";
 import { interviewPracticeQueueRepository } from "@/lib/interview-practice-queue";
+import { AnalysisProvenanceHint } from "@/components/analysis-provenance-hint";
 
 const t = ko.applicationCoach;
 const documentTypes = Object.keys(t.documents) as ApplicationDocumentType[];
@@ -548,6 +549,7 @@ export function ApplicationExperiencePicker({
       onBack={onBack}
       footer={<PrimaryButton onClick={onNext}>{t.next}</PrimaryButton>}
     >
+      <p className="mb-3 rounded-xl bg-secondary/60 p-3 text-xs leading-relaxed text-muted-foreground">저장한 경험의 태그와 문항 기준을 규칙으로 비교한 추천이며 실제 AI 추천이 아닙니다.</p>
       <div className="space-y-3">
         {recommendations.map(({ experience, reason }) => {
           const airlineMatch = airlineMatches.get(experience.id);
@@ -1043,6 +1045,9 @@ export function ApplicationAnalysisResult({
           </div>
         </div>
       </section>
+      <div className="mt-4">
+        <AnalysisProvenanceHint kinds={["deterministic"]} note="작성 내용과 연결된 근거를 정해진 기준으로 점검한 참고 지표이며 실제 AI 평가나 합격 가능성 점수가 아닙니다." />
+      </div>
       <div className="mt-4">
         <CharacterLimitIndicator content={draft.content} prompt={prompt} />
       </div>

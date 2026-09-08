@@ -5,7 +5,6 @@ import {
   analyzeSelfIntroductionWithAirlineContext,
   getSelfIntroductionAirlineContext,
   loadSelfIntroductionAttempts,
-  mockTranscript,
   recordAttemptProgress,
   saveAttemptAudio,
   saveSelfIntroductionAttempt,
@@ -69,7 +68,7 @@ export function SelfIntroductionFlow({
   const [audioUrl, setAudioUrl] = useState<string>();
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [transcript, setTranscript] = useState(mockTranscript);
+  const [transcript, setTranscript] = useState('');
   const [attempt, setAttempt] = useState<SelfIntroductionAttempt | null>(null);
   const [selectedHistoryAttemptId, setSelectedHistoryAttemptId] = useState<string>();
   const [previousAttemptId, setPreviousAttemptId] = useState<string>();
@@ -290,7 +289,7 @@ export function SelfIntroductionFlow({
     const selectedSeconds = mode?.match(/^(30|60|90)초/)?.[1];
     if (selectedSeconds) setChallengeTarget(Number(selectedSeconds) as SelfIntroductionChallengeSeconds);
     setStep("retry");
-    setTranscript(mockTranscript);
+    setTranscript('');
     setElapsed(0);
     setBlob(null);
     setAudioUrl(undefined);
@@ -310,7 +309,7 @@ export function SelfIntroductionFlow({
     if (conditions.practiceLanguage) setPracticeLanguage(conditions.practiceLanguage);
     setSelectedHistoryAttemptId(undefined);
     setAttempt(null);
-    setTranscript(mockTranscript);
+    setTranscript('');
     setElapsed(0);
     setBlob(null);
     setAudioUrl(undefined);

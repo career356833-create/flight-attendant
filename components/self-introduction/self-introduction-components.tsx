@@ -22,6 +22,7 @@ import {
 } from "@/lib/self-introduction-data";
 import { compareSelfIntroductionRetake, getSelfIntroductionChallengeGuide, SELF_INTRO_CHALLENGE_OPTIONS, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
 import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
+import { AnalysisProvenanceHint } from "@/components/analysis-provenance-hint";
 
 const primary =
   "h-14 w-full rounded-2xl bg-navy px-5 font-semibold text-ivory transition active:scale-[.98] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
@@ -482,8 +483,9 @@ export function RecordingReview({
         className="mt-6 block text-sm font-bold text-navy"
         htmlFor="self-intro-transcript"
       >
-        답변 내용
+        연습용 텍스트 입력
       </label>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">이 입력란은 실제 음성 전사 결과가 아닙니다. 실제 전사는 분석 후 성공한 경우에만 결과에 사용됩니다.</p>
       <textarea
         id="self-intro-transcript"
         value={transcript}
@@ -598,7 +600,7 @@ export function ImprovementGuide({
 }) {
   return (
     <section>
-      <h2 className="text-base font-bold text-navy">AI 개선 제안</h2>
+      <h2 className="text-base font-bold text-navy">연습 개선 제안</h2>
       <div className="mt-3 space-y-2">
         {[
           ["유지할 점", analysis.guide.keep],
@@ -783,6 +785,9 @@ export function SelfIntroductionResult({
           </p>
         </div>
       </section>
+      <div className="mt-4">
+        <AnalysisProvenanceHint kinds={["stt_derived", "deterministic"]} note="실제 녹음의 전사문을 정해진 자기소개 기준으로 점검했습니다. 실제 AI 평가나 합격 가능성 점수가 아닙니다." />
+      </div>
       <div className="mt-5">
         <TimingAnalysisCard analysis={a} />
       </div>

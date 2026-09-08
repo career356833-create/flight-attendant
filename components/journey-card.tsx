@@ -58,10 +58,10 @@ export function JourneyCard({ onStartTraining, target, score, nextGoal = '오늘
             </h2>
           </div>
           <div className="text-right">
-            <p className="eyebrow text-ivory/45">SCORE</p>
+            <p className="eyebrow text-ivory/45">SELF-CHECK</p>
             <p className="mt-0.5 text-3xl font-bold leading-none text-ivory">
               {score}
-              <span className="ml-0.5 text-base font-semibold text-gold">%</span>
+              <span className="ml-0.5 text-base font-semibold text-gold">/100</span>
             </p>
           </div>
         </div>
@@ -73,6 +73,7 @@ export function JourneyCard({ onStartTraining, target, score, nextGoal = '오늘
             style={{ width: `${score}%` }}
           />
         </div>
+        <p className="-mt-3 text-xs leading-relaxed text-ivory/55">자가응답과 연습 기록 기반 참고 지표 · 합격 가능성이 아닙니다.</p>
 
         <div className="flex items-center gap-2 rounded-2xl bg-ivory/5 px-4 py-3 backdrop-blur-sm">
           <Target className="h-4 w-4 shrink-0 text-gold" strokeWidth={2} />

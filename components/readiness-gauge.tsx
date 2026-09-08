@@ -8,7 +8,7 @@ type ReadinessGaugeProps = {
 }
 
 // Semicircular gauge rendered with a stroked SVG arc.
-export function ReadinessGauge({ value, label = 'OVERALL READINESS' }: ReadinessGaugeProps) {
+export function ReadinessGauge({ value, label = 'SELF-CHECK READINESS' }: ReadinessGaugeProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
@@ -24,7 +24,7 @@ export function ReadinessGauge({ value, label = 'OVERALL READINESS' }: Readiness
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 180 104" className="w-full max-w-[240px]" role="img" aria-label={`전체 준비도 ${clamped}%`}>
+      <svg viewBox="0 0 180 104" className="w-full max-w-[240px]" role="img" aria-label={`자가진단 준비 지표 ${clamped}/100`}>
         <path
           d={arc}
           fill="none"
@@ -54,9 +54,10 @@ export function ReadinessGauge({ value, label = 'OVERALL READINESS' }: Readiness
       <div className="-mt-9 flex flex-col items-center">
         <p className="text-4xl font-bold leading-none text-navy">
           {clamped}
-          <span className="ml-0.5 text-lg font-semibold text-gold">%</span>
+          <span className="ml-0.5 text-lg font-semibold text-gold">/100</span>
         </p>
         <p className="eyebrow mt-2 text-muted-foreground">{label}</p>
+        <p className="mt-2 max-w-[260px] text-center text-xs leading-relaxed text-muted-foreground">자가응답과 완료한 연습 기록을 규칙으로 요약한 참고 지표이며 합격 가능성이 아닙니다.</p>
       </div>
     </div>
   )

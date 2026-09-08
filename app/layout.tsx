@@ -5,7 +5,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'CABIN · 객실승무원 합격 루틴',
   description:
-    '객실승무원 취업 준비를 매일의 합격 루틴으로 완성하는 AI 커리어 코칭 플랫폼',
+    '객실승무원 취업 준비를 매일의 연습 루틴으로 연결하는 커리어 준비 플랫폼',
   generator: 'v0.app',
   applicationName: 'CABIN',
   appleWebApp: {

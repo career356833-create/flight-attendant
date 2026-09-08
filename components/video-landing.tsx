@@ -114,7 +114,7 @@ export function VideoLanding({ onStart, onLogin, videoUrl }: VideoLandingProps) 
       <div className="relative z-10 mt-auto flex flex-col gap-6 px-6 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] md:max-w-[58%] md:px-12 md:pb-14 lg:max-w-[52%] lg:px-16 lg:pb-16">
         <div className="flex flex-col gap-4">
           <span className="eyebrow w-fit rounded-full border border-ivory/20 bg-ivory/5 px-3 py-1.5 text-gold backdrop-blur-sm">
-            AI CAREER PREPARATION
+            CABIN CAREER PREPARATION
           </span>
           <h1 className="whitespace-pre-line text-pretty text-[2rem] font-bold leading-[1.25] tracking-tight text-ivory md:text-[2.8rem] lg:text-[3.25rem]">
             {landingContent.headline}

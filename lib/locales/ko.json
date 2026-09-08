@@ -64,7 +64,7 @@
     "empty":"아직 저장한 경험이 없어요.\n첫 경험을 정리하면 면접 답변을 만들 때 다시 활용할 수 있어요.", "error":"경험 데이터를 불러오지 못했어요.", "deleteConfirm":"이 경험을 삭제할까요?\n연결된 면접 기록은 유지되지만 경험 상세 연결은 제거됩니다."
   },
   "interviewPractice": {
-    "title": "AI 면접 훈련실",
+    "title": "면접 훈련실",
     "supporting": "질문에 직접 답하고, 내용과 전달 방식을 함께 분석해 보세요.",
     "categories": {
       "introduction_and_motivation": { "title": "자기소개·지원동기", "description": "나의 강점과 지원 이유를 명확하게 전달하는 연습" },
@@ -80,7 +80,7 @@
     },
     "difficulties": { "beginner": "입문", "intermediate": "중급", "advanced": "심화" },
     "filters": { "all": "전체", "beginner": "입문", "intermediate": "중급", "advanced": "심화", "unpracticed": "미연습", "retry": "다시 연습" },
-    "sorts": { "recommended": "추천순", "unpracticed": "미연습 우선", "recent": "최근 연습", "lowest": "낮은 점수 우선" },
+    "sorts": { "recommended": "추천순", "unpracticed": "미연습 우선", "recent": "최근 연습", "lowest": "낮은 연습 지표 우선" },
     "questions": {
       "im1": { "shortTitle": "핵심 자기소개", "prompt": "본인을 가장 잘 보여주는 강점과 경험을 중심으로 자기소개해 주세요." },
       "im2": { "shortTitle": "객실승무원 지원 이유", "prompt": "객실승무원을 지원한 이유를 말씀해 주세요." },
@@ -167,7 +167,7 @@
     "versions": "이전 버전 보기",
     "analyze": "분석하고 저장",
     "analysisTitle": "지원 답변 분석",
-    "overall": "종합 완성도",
+    "overall": "규칙 기반 작성 완성도 /100",
     "best": "가장 잘한 점",
     "firstFix": "가장 먼저 보완할 점",
     "saveVersion": "새 버전 저장",
