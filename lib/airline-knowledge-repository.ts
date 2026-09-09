@@ -78,6 +78,7 @@ import {
   getAirlineAiRequirements,
   type AirlineRecruitmentRequirement,
 } from "./airline-recruitment-requirements";
+import { isAirlineKnowledgeEligibleForAiContext } from "./airline-ai-context-gate";
 
 export type ReviewStatus =
   "draft" | "in_review" | "reviewed" | "approved" | "verified" | "archived";
@@ -191,6 +192,8 @@ export type AirlineKnowledgeProfile = {
   updatedAt: string;
   lastReviewedAt?: string;
   reviewedBy?: string;
+  /** Explicit opt-in for AI/context use. Missing legacy values remain disabled. */
+  aiContextEnabled?: boolean;
 };
 export type AirlineResourceType =
   | "career_page"
@@ -1092,10 +1095,7 @@ export function getPracticeQuestionsForAirline({
       )
     : [];
   const airline = airlineId
-    ? getApprovedAirlineInterviewQuestions(
-        airlineResearchRepository.list(airlineId),
-        airlineId,
-      )
+    ? (getAirlineAIContext(airlineId)?.approvedResearchQuestions ?? [])
         .map(toPracticeQuestion)
         .filter((question) => !category || question.category === category)
     : [];
@@ -1133,6 +1133,17 @@ export function getAirlineAIContext(
 ): AirlineAIContext | null {
   const published = getPublishedAirlineKnowledge(airlineId);
   if (!published) return null;
+  const profile = airlineKnowledgeRepository.getProfile(airlineId);
+  if (
+    !profile ||
+    !isAirlineKnowledgeEligibleForAiContext({
+      verified: profile.reviewStatus === "verified",
+      published: profile.publishStatus === "published",
+      sourceReferences: published.resources.map((resource) => resource.url),
+      aiContextEnabled: profile.aiContextEnabled,
+    })
+  )
+    return null;
   const publishedFAQ = airlineKnowledgeRepository
       .listFaqs(airlineId)
       .filter(

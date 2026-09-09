@@ -4,7 +4,6 @@ import type { InterviewSession } from '@/lib/mock-interview-session'
 export type HomeInterviewTopic='result'|'action'|'safety'|'customer_service'|'teamwork'|'filler'|'long_pause'|'motivation'|'english'
 export type HomeInterviewRecommendation={mode:'ai_interviewer';count:5;airlineId?:string;topic:HomeInterviewTopic;title:string;reason:string;focus:string[]}
 export type HomeInterviewGrowth={label:string;before:string;after:string}
-export type AirlineContextGate={contextAvailable:boolean;verified:boolean;reviewStatus?:string;publishStatus?:string;aiContextEnabled:boolean}
 export type HomeInterviewHistory={sessions:InterviewSession[];attempts:InterviewAttempt[];available:boolean}
 export type HomeDrillCriteria={preferredCategories:InterviewCategory[];preferredCapabilities:CapabilityKey[]}
 export type HomeDrillPlan={reason:HomeInterviewTopic;criteria:HomeDrillCriteria;selectedQuestionIds:string[]}
@@ -46,7 +45,6 @@ export function buildHomeInterviewRecommendation(input:{attempts:InterviewAttemp
   return{mode:'ai_interviewer',count:5,airlineId:input.hasPublishedAirlineContext?input.targetAirlineId:undefined,topic,title:copy.title,reason:copy.reason,focus:copy.focus}
 }
 
-export function canUseAirlineContext(gate:AirlineContextGate){return gate.contextAvailable&&gate.verified&&['approved','verified'].includes(gate.reviewStatus??'')&&gate.publishStatus==='published'&&gate.aiContextEnabled}
 
 export function loadHomeInterviewHistory(input:{loadSessions:()=>InterviewSession[];loadAttempts:()=>InterviewAttempt[]}):HomeInterviewHistory{
   try{return{sessions:input.loadSessions(),attempts:input.loadAttempts(),available:true}}catch{return{sessions:[],attempts:[],available:false}}

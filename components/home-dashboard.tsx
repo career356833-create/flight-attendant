@@ -29,8 +29,8 @@ import { buildLearningActivities, getCurrentReadinessSnapshot, getWeeklyLearning
 import { learningAnalyticsRepository } from '@/lib/learning-analytics-repository'
 import { AccountSummary } from '@/components/account/account-summary'
 import { queueTrainingAttempt } from '@/lib/supabase/training-attempt-repositories'
-import { airlineKnowledgeRepository, getAirlineAIContext } from '@/lib/airline-knowledge-repository'
-import { buildHomeDrillPlan, buildHomeInterviewRecommendation, canUseAirlineContext, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
+import { getAirlineAIContext } from '@/lib/airline-knowledge-repository'
+import { buildHomeDrillPlan, buildHomeInterviewRecommendation, findResumableSession, loadHomeInterviewHistory } from '@/lib/home-dashboard-v2'
 import { getExperienceCoverage } from '@/lib/experience-match-engine'
 import { listWorkDrafts } from '@/lib/application-answer-repository'
 import { interviewPracticeQueueRepository, resolveInterviewQuestion } from '@/lib/interview-practice-queue'
@@ -102,9 +102,8 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
   useEffect(()=>setTasks(current=>current.map(task=>task.id===SELF_INTRO_TASK_ID?{...task,status:trainingProgress.routineCompleted?'done':'todo'}:task.id==='interview-question-im2'?{...task,status:interviewRoutineDone?'done':'todo'}:task)),[trainingProgress.routineCompleted,interviewRoutineDone])
   const readinessSnapshot=getCurrentReadinessSnapshot(),weeklySummary=getWeeklyLearningSummary()
   const targetAirlineId=diagnosis?.primaryAirline
-  const airlineProfile=targetAirlineId?airlineKnowledgeRepository.getProfile(targetAirlineId):undefined
   const airlineContext=targetAirlineId?getAirlineAIContext(targetAirlineId):null
-  const hasPublishedAirlineContext=sessionHistoryAvailable&&canUseAirlineContext({contextAvailable:Boolean(airlineContext),verified:Boolean(airlineContext?.sourceGrade.some(grade=>['A','B','C'].includes(grade))),reviewStatus:airlineProfile?.reviewStatus,publishStatus:airlineProfile?.publishStatus,aiContextEnabled:Boolean(airlineContext?.publishedRecruitmentRequirements.length)})
+  const hasPublishedAirlineContext=sessionHistoryAvailable&&Boolean(airlineContext)
   const interviewRecommendation=buildHomeInterviewRecommendation({attempts:interviewAttempts,targetAirlineId,hasPublishedAirlineContext})
   const drillPlan=buildHomeDrillPlan(interviewRecommendation.topic)
   const resumableSession=findResumableSession(interviewSessions)
@@ -152,7 +151,7 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onEditDiagnosis, o
     )
   }
 
-  function airlineContextAllowed(id:string){const profile=airlineKnowledgeRepository.getProfile(id),context=getAirlineAIContext(id);return Boolean(profile?.reviewStatus==='approved'&&profile.publishStatus==='published'&&context&&context.sourceGrade.some(grade=>['A','B','C'].includes(grade))&&context.publishedRecruitmentRequirements.length)}
+  function airlineContextAllowed(id:string){return Boolean(getAirlineAIContext(id))}
   function startInterviewQuestion(question:InterviewQuestion,previousAttemptId?:string,selectedExperienceId?:string,targetAirlineOverride?:string,sourceQueueItemId?:string,sourceContext?:InterviewPracticeSourceContext,weeklyTaskContext?:WeeklyTaskContext,source?:SingleInterviewResumeSource,returnTarget?:InterviewPracticeReturnTarget){const latest=interviewAttempts.find(attempt=>attempt.questionId===question.id);const linkedId=previousAttemptId??latest?.id,resumeSource=source??(sourceContext?.source??(sourceQueueItemId?'queue':weeklyTaskContext?'weekly_task':'direct'));const config:InterviewPracticeConfig={question,attemptType:linkedId?'retry':'first',previousAttemptId:linkedId,targetAirlineId:targetAirlineOverride??diagnosis?.primaryAirline,selectedExperienceId,sourceQueueItemId,sourceContext,weeklyTaskContext};setInterviewReturnTarget(returnTarget??interviewReturnTargetForSource(resumeSource));setPracticeConfig(config);singleInterviewResumeRepository.save(resumeFromConfig(config,resumeSource))}
   function retakeSingleInterview(attempt:InterviewAttempt){const question=interviewQuestionById.get(attempt.questionId);if(!question)return;const language=attempt.speechMetrics?.language==='en'?'en':attempt.speechMetrics?.language==='ko'?'ko':undefined;const safeAirlineId=attempt.targetAirlineId&&airlineContextAllowed(attempt.targetAirlineId)?attempt.targetAirlineId:undefined;const safeExperienceId=attempt.experienceId&&experienceRepository.load().experiences.some(item=>item.id===attempt.experienceId)?attempt.experienceId:undefined,source:SingleInterviewResumeSource=attempt.weeklyTaskContext?'weekly_task':attempt.sourceContext?.source??'direct';const config:InterviewPracticeConfig={question,attemptType:'retry',previousAttemptId:attempt.id,targetAirlineId:safeAirlineId,selectedExperienceId:safeExperienceId,sourceContext:attempt.sourceContext,weeklyTaskContext:attempt.weeklyTaskContext,languageHint:language};setInterviewReturnTarget(interviewReturnTargetForSource(source));setPracticeConfig(config);singleInterviewResumeRepository.save(resumeFromConfig(config,source))}
   function resumeSingleInterview(){const stored=singleInterviewResumeRepository.load();if(!stored)return;const restored=restoreSingleInterviewConfig(stored,{questionExists:id=>interviewQuestionById.has(id),airlineContextAllowed,experienceExists:id=>experienceRepository.load().experiences.some(item=>item.id===id)});const question=interviewQuestionById.get(stored.questionId);if(!restored||!question){setInvalidResume(true);return}setInvalidResume(false);setMockSession(null);setActiveWeeklyTask(restored.weeklyTaskContext??null);setInterviewReturnTarget(interviewReturnTargetForSource(stored.source));setActiveNav('interview');setPracticeConfig({question,...restored})}

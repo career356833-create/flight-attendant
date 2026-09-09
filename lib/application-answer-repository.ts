@@ -401,8 +401,8 @@ export const practiceApplicationPrompts: ApplicationPrompt[] = [
   },
 ];
 export function listPrompts(airlineId?: string) {
-  const published = airlineId ? getPublishedAirlineKnowledge(airlineId) : null;
-  const verified = (published?.questions ?? [])
+  const context = airlineId ? getAirlineApplicationContext(airlineId) : null;
+  const verified = (context?.publishedApplicationQuestions ?? [])
     .filter((q) => q.sourceType === "official_application")
     .map((q) => ({
       id: `airline-${q.id}`,

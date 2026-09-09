@@ -1,4 +1,5 @@
 import type { SourceGrade } from "./airline-knowledge-repository";
+import { isAirlineKnowledgeEligibleForAiContext } from "./airline-ai-context-gate";
 
 export type RecruitmentRequirementCategory =
   | "age"
@@ -45,6 +46,7 @@ export type AirlineRecruitmentRequirement = {
   verificationStatus: RequirementVerificationStatus;
   candidateVisibility: CandidateVisibility;
   aiContextEnabled: boolean;
+  publishStatus?: "unpublished" | "published";
   scope: RecruitmentRequirementScope;
 };
 const emiratesCareers =
@@ -481,7 +483,11 @@ export const getAirlineAiRequirements = (airlineId: string) =>
   airlineRecruitmentRequirements.filter(
     (item) =>
       item.airlineId === airlineId &&
-      item.aiContextEnabled &&
-      item.verificationStatus === "verified" &&
+      isAirlineKnowledgeEligibleForAiContext({
+        verified: item.verificationStatus === "verified",
+        published: item.publishStatus === "published",
+        sourceReferences: item.sourceReference,
+        aiContextEnabled: item.aiContextEnabled,
+      }) &&
       item.candidateVisibility === "visible",
   );

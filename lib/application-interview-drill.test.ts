@@ -105,7 +105,7 @@ test("strong, adequate and not-applicable findings do not create negative drills
   assert.deepEqual(drills, []);
 });
 
-test("published airline context can select a published airline question", () => {
+test("published airline data without explicit AI opt-in falls back to generic", () => {
   const airlineQuestions = getPracticeQuestionsForAirline({
     airlineId: "emirates",
     includeGeneralQuestions: false,
@@ -115,8 +115,9 @@ test("published airline context can select a published airline question", () => 
     version: version([finding("airlineFit", "insufficient_evidence")]),
     airlineQuestions,
   })[0];
-  assert.equal(drill.targetAirlineId, "emirates");
-  assert.ok(drill.question.airlineTags?.includes("emirates"));
+  assert.equal(airlineQuestions.length, 0);
+  assert.equal(drill.targetAirlineId, undefined);
+  assert.equal(drill.question.airlineTags?.length ?? 0, 0);
 });
 
 test("missing airline context falls back to a generic motivation question", () => {
