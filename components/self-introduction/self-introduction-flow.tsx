@@ -35,6 +35,7 @@ import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfI
 import { sameConditionRetake, sortSelfIntroductionHistory } from "@/lib/self-introduction-history";
 import { resolveSelfIntroductionResultNavigation } from "@/lib/self-introduction-navigation";
 import { useMicrophoneCheck } from "@/components/interview-practice/use-microphone-check";
+import { saveSelfIntroductionAudioSafely } from "@/lib/self-introduction-audio-recovery";
 
 export type SelfIntroductionStep =
   | "intro"
@@ -70,6 +71,7 @@ export function SelfIntroductionFlow({
   const [paused, setPaused] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [attempt, setAttempt] = useState<SelfIntroductionAttempt | null>(null);
+  const [audioSaveWarning, setAudioSaveWarning] = useState<string>();
   const [selectedHistoryAttemptId, setSelectedHistoryAttemptId] = useState<string>();
   const [previousAttemptId, setPreviousAttemptId] = useState<string>();
   const [challengeTarget, setChallengeTarget] = useState<SelfIntroductionChallengeSeconds | undefined>(initialChallengeTarget);
@@ -265,8 +267,9 @@ export function SelfIntroductionFlow({
       practiceLanguage,
     };
     saveSelfIntroductionAttempt(next);
-    if (blob) await saveAttemptAudio(next.id, blob);
-    queueTrainingAttempt("self_introduction", next, Boolean(blob));
+    const audioSave = await saveSelfIntroductionAudioSafely(next.id, blob, saveAttemptAudio);
+    setAudioSaveWarning(audioSave.warning);
+    queueTrainingAttempt("self_introduction", next, audioSave.audioSaved);
     recordAttemptProgress(next);
     setAttempt(next);
     setStep("result");
@@ -297,12 +300,14 @@ export function SelfIntroductionFlow({
   }
 
   function revisitHistory(selected: SelfIntroductionAttempt) {
+    setAudioSaveWarning(undefined);
     setSelectedHistoryAttemptId(selected.id);
     setAttempt(selected);
     setStep("result");
   }
 
   function retakeHistory(selected: SelfIntroductionAttempt) {
+    setAudioSaveWarning(undefined);
     const conditions = sameConditionRetake(selected);
     setPreviousAttemptId(conditions.previousAttemptId);
     setChallengeTarget(conditions.targetSeconds);
@@ -445,6 +450,7 @@ export function SelfIntroductionFlow({
     return (
       <SelfIntroductionResult
         attempt={attempt}
+        audioSaveWarning={audioSaveWarning}
         history={sortSelfIntroductionHistory(loadSelfIntroductionAttempts())}
         onBack={selectedHistoryAttemptId ? () => navigateFromResult("back") : undefined}
         onHome={weeklyReturnAttemptId === attempt.id && !selectedHistoryAttemptId && onWeeklyReturn ? onWeeklyReturn : () => navigateFromResult("home")}

@@ -717,6 +717,7 @@ function LocalAttemptAudio({attemptId}:{attemptId:string}) {
 
 export function SelfIntroductionResult({
   attempt,
+  audioSaveWarning,
   history,
   onBack,
   onHome,
@@ -727,6 +728,7 @@ export function SelfIntroductionResult({
   returnLabel,
 }: {
   attempt: SelfIntroductionAttempt;
+  audioSaveWarning?: string;
   history: SelfIntroductionAttempt[];
   onBack?: () => void;
   onHome: () => void;
@@ -739,6 +741,7 @@ export function SelfIntroductionResult({
   const a = attempt.analysis;
   if (attempt.transcriptIntegrity && !attempt.transcriptIntegrity.isActualTranscription) return (
     <DiagnosisFrame title="자기소개 녹음 결과" onBack={onBack ?? onHome} footer={<button className={primary} onClick={onHome}>{returnLabel ?? "홈으로 돌아가기"}</button>}>
+      {audioSaveWarning && <p role="status" className="mb-4 rounded-xl border border-gold/30 bg-secondary/60 p-3 text-sm text-midnight">{audioSaveWarning}</p>}
       {isHistoryRevisit && <section className="mb-5 rounded-2xl border border-border bg-card p-5"><span className="eyebrow text-gold">HISTORY</span><p className="mt-2 text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleString('ko-KR')} · {attempt.targetSeconds ? `${attempt.targetSeconds}초` : '자유 연습'} · {attempt.practiceLanguage === 'ko' ? '한국어' : attempt.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}</p>{onRetakeSameConditions&&<button type="button" onClick={onRetakeSameConditions} className="mt-4 h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory">같은 조건으로 다시 연습</button>}</section>}
       <section className="rounded-3xl bg-navy p-5 text-ivory"><span className="text-xs font-bold text-gold">AUDIO ONLY</span><h2 className="mt-2 text-lg font-bold">녹음 완료 · {formatDurationWords(attempt.durationSeconds)}</h2><p className="mt-3 text-sm leading-relaxed">음성 전사 기능이 현재 연결되지 않아 자기소개 구조·필러·발화 속도 분석은 제공할 수 없습니다.</p></section>
       {attempt.audioMetrics && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="font-bold text-navy">오디오 기반 지표</h2><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>평균 음량 <strong>{attempt.audioMetrics.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics.pauses.longCount}회</strong></p></div></section>}
@@ -759,6 +762,7 @@ export function SelfIntroductionResult({
         </button>
       }
     >
+      {audioSaveWarning && <p role="status" className="mb-4 rounded-xl border border-gold/30 bg-secondary/60 p-3 text-sm text-midnight">{audioSaveWarning}</p>}
       <div className="self-intro-result-grid">
       <div className="self-intro-result-main">
       {isHistoryRevisit && <section className="mb-5 rounded-2xl border border-border bg-card p-5"><span className="eyebrow text-gold">HISTORY</span><h2 className="mt-2 text-base font-bold text-navy">과거 자기소개 결과</h2><p className="mt-2 text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleString('ko-KR')} · {attempt.targetSeconds ? `${attempt.targetSeconds}초` : '자유 연습'} · {attempt.practiceLanguage === 'ko' ? '한국어' : attempt.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}</p>{onRetakeSameConditions&&<button type="button" onClick={onRetakeSameConditions} className="mt-4 h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">같은 조건으로 다시 연습</button>}</section>}

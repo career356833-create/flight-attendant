@@ -5,6 +5,11 @@ import type { InterviewSpeechMetrics } from "@/lib/interview-audio/speech-analys
 import type { PronunciationAnalysisResult } from "@/lib/ai/pronunciation-provider";
 import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import type { TranscriptIntegrity } from "@/lib/interview-practice-data";
+import {
+  readAttemptAudio,
+  removeAttemptAudio,
+  writeAttemptAudio,
+} from "@/lib/attempt-audio-storage";
 
 export type TimingAssessment =
   | "too_brief_for_content"
@@ -97,8 +102,6 @@ export type SelfIntroductionProgress = {
 export const SELF_INTRO_TASK_ID = "self-introduction-diagnosis";
 const ATTEMPTS_KEY = "cabin-self-introduction-attempts-v1";
 const PROGRESS_KEY = "cabin-self-introduction-progress-v1";
-const DB_NAME = "cabin-training-audio";
-const STORE_NAME = "attempt-audio";
 
 export const mockTranscript =
   "저의 강점은 고객의 상황을 빠르게 이해하고 침착하게 해결하는 서비스 역량입니다. 카페에서 근무할 때 주문 지연으로 불편을 겪은 고객에게 먼저 상황을 설명하고 대안을 제안해 만족을 이끌어 낸 경험이 있습니다. 이 경험을 통해 정확한 안내와 공감의 중요성을 배웠고, 객실승무원으로서 승객이 안심할 수 있는 서비스를 제공하겠습니다.";
@@ -401,59 +404,20 @@ export function recordAttemptProgress(attempt: SelfIntroductionAttempt) {
 
 export async function saveAttemptAudio(attemptId: string, blob: Blob) {
   if (typeof indexedDB === "undefined") return;
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () =>
-      request.result.createObjectStore(STORE_NAME);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const transaction = request.result.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put(blob, attemptId);
-      transaction.oncomplete = () => {
-        request.result.close();
-        resolve();
-      };
-      transaction.onerror = () => reject(transaction.error);
-    };
-  });
+  await writeAttemptAudio(attemptId, blob);
 }
 
 export async function loadAttemptAudio(
   attemptId: string,
 ): Promise<Blob | null> {
   if (typeof indexedDB === "undefined") return null;
-  return new Promise((resolve) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => resolve(null);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(STORE_NAME, "readonly");
-      const get = transaction.objectStore(STORE_NAME).get(attemptId);
-      get.onsuccess = () => {
-        db.close();
-        resolve(get.result instanceof Blob ? get.result : null);
-      };
-      get.onerror = () => {
-        db.close();
-        resolve(null);
-      };
-    };
-  });
+  try {
+    return await readAttemptAudio(attemptId);
+  } catch {
+    return null;
+  }
 }
 export async function deleteAttemptAudio(attemptId: string) {
   if (typeof indexedDB === "undefined") return;
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).delete(attemptId);
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => reject(tx.error);
-    };
-  });
+  await removeAttemptAudio(attemptId);
 }
