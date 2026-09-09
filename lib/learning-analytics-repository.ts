@@ -1,5 +1,6 @@
 import type { CapabilityKey } from '@/lib/interview-practice-data'
 import type { TrainingPriority, WeeklyRoutineDay } from '@/lib/learning-analytics-service'
+import { safeLocalStorageWrite } from '@/lib/safe-local-storage'
 
 export type ConfirmedWeeklyPlan={weekStart:string;days:WeeklyRoutineDay[];confirmedAt:string;updatedAt:string}
 export type TrainingPrioritySnapshot={weekStart:string;priorities:TrainingPriority[];generatedAt:string;basedOnActivityIds:string[]}
@@ -13,7 +14,7 @@ function inferredWeekStart(value:string){const date=new Date(`${value}T12:00:00`
 function normalizePlan(value:unknown):ConfirmedWeeklyPlan|null{if(!value||typeof value!=='object')return null;const row=value as Partial<ConfirmedWeeklyPlan>,days=Array.isArray(row.days)?row.days.filter(day=>day&&validDate(day.date)&&Array.isArray(day.tasks)).map(day=>({...day,tasks:day.tasks.filter(task=>task&&typeof task.id==='string')})):[],weekStart=validDate(row.weekStart)?row.weekStart:days[0]?inferredWeekStart(days[0].date):null;if(!weekStart)return null;const timestamp=typeof row.confirmedAt==='string'?row.confirmedAt:now();return{weekStart,days,confirmedAt:timestamp,updatedAt:typeof row.updatedAt==='string'?row.updatedAt:timestamp}}
 function normalizePlans(values:unknown[]){const seen=new Set<string>();return values.map(normalizePlan).filter((plan:ConfirmedWeeklyPlan|null):plan is ConfirmedWeeklyPlan=>{if(!plan||seen.has(plan.weekStart))return false;seen.add(plan.weekStart);return true}).slice(0,52)}
 function read(){if(typeof window==='undefined')return empty();try{const raw=JSON.parse(localStorage.getItem(KEY)??'{}');return{schemaVersion:VERSION,confirmedWeeklyPlans:Array.isArray(raw.confirmedWeeklyPlans)?normalizePlans(raw.confirmedWeeklyPlans):[],priorityHistory:Array.isArray(raw.priorityHistory)?raw.priorityHistory.slice(0,52):[],reportViewHistory:Array.isArray(raw.reportViewHistory)?raw.reportViewHistory.slice(0,200):[],routineCompletions:Array.isArray(raw.routineCompletions)?raw.routineCompletions.filter((x:RoutineCompletionSnapshot)=>x&&typeof x.id==='string'&&typeof x.occurredAt==='string').slice(0,1000):[],planEditHistory:Array.isArray(raw.planEditHistory)?raw.planEditHistory.slice(0,500):[],updatedAt:typeof raw.updatedAt==='string'?raw.updatedAt:now()} as LearningAnalyticsStore}catch{return empty()}}
-function write(s:LearningAnalyticsStore){const next:LearningAnalyticsStore={...s,schemaVersion:1,updatedAt:now()};if(typeof window!=='undefined'){localStorage.setItem(KEY,JSON.stringify(next));window.dispatchEvent(new Event('cabin:learning-local-changed'))}return next}
+function write(s:LearningAnalyticsStore){const next:LearningAnalyticsStore={...s,schemaVersion:1,updatedAt:now()};if(typeof window!=='undefined'){const result=safeLocalStorageWrite(KEY,next,{category:'learning'});if(result.ok)window.dispatchEvent(new Event('cabin:learning-local-changed'))}return next}
 export const learningAnalyticsRepository={
   load:read,recover(){return write(read())},
   markReportViewed(weekStart:string){const s=read();s.reportViewHistory=Array.from(new Set([`${weekStart}:${now()}`,...s.reportViewHistory])).slice(0,200);return write(s)},

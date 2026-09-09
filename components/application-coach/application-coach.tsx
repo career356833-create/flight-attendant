@@ -1358,6 +1358,7 @@ export function ApplicationCoach({
       draft,
       analysis,
     });
+    if (!answer) return;
     setCurrent(answer);
     setSaved(listApplicationAnswers());
     setStep("detail");

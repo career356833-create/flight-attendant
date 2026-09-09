@@ -12,6 +12,7 @@ import {
 } from "@/lib/experience-match-engine";
 import type { CapabilityKey } from "@/lib/interview-practice-data";
 import { evaluateAnswerQuality, type AnswerQualityRubric } from "@/lib/answer-quality-rubric";
+import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
 
 export type ApplicationDocumentType =
   | "application_question"
@@ -278,13 +279,16 @@ function read(): Store {
 }
 function write(store: Store) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(
+    const result = safeLocalStorageWrite(
       KEY,
-      JSON.stringify({ ...store, schemaVersion: VERSION, updatedAt: now() }),
+      { ...store, schemaVersion: VERSION, updatedAt: now() },
+      { category: "application" },
     );
+    if (!result.ok) return result;
     window.dispatchEvent(new Event("cabin:application-local-changed"));
+    return result;
   }
-  return store;
+  return { ok: false as const, reason: "storage_unavailable" as const };
 }
 export const recoverApplicationAnswerStore = () => write(read());
 export const listApplicationAnswers = () =>
@@ -303,10 +307,7 @@ export function saveWorkDraft(draft: ApplicationWorkDraft) {
     { ...draft, updatedAt: now() },
     ...s.workDrafts.filter((x) => x.id !== draft.id),
   ].slice(0, 10);
-  write(s);
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("cabin:application-local-changed"));
-  }
+  return write(s);
 }
 export const getWorkDraft = (id: string) =>
   read().workDrafts.find((x) => x.id === id);
@@ -318,7 +319,7 @@ export function saveCustomPrompt(prompt: ApplicationPrompt) {
     prompt,
     ...s.customPrompts.filter((x) => x.id !== prompt.id),
   ].slice(0, 50);
-  write(s);
+  return write(s);
 }
 
 export const practiceApplicationPrompts: ApplicationPrompt[] = [
@@ -940,8 +941,9 @@ export function createApplicationAnswer(input: {
   };
   s.answers = [answer, ...s.answers].slice(0, 100);
   s.versions.push(version);
+  const saved = write(s);
+  if (!saved.ok) return null;
   input.experiences.forEach((e) => experienceRepository.markUsed(e.id));
-  write(s);
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("cabin:application-answer-saved", { detail: { answerId: id } }));
   recordApplicationProgress(id, "structured", !!context, input.prompt.locale);
   if (input.analysis)
@@ -978,8 +980,7 @@ export function createAnswerVersion(
   answer.currentVersionId = version.id;
   answer.updatedAt = now();
   if (analysis) answer.status = "reviewed";
-  write(s);
-  return version;
+  return write(s).ok ? version : null;
 }
 export function updateApplicationAnswer(
   id: string,
@@ -989,25 +990,26 @@ export function updateApplicationAnswer(
     answer = s.answers.find((a) => a.id === id);
   if (!answer) return null;
   Object.assign(answer, patch, { id, updatedAt: now() });
-  write(s);
-  return answer;
+  return write(s).ok ? answer : null;
 }
 export function deleteApplicationAnswer(id: string) {
   const s = read();
   s.answers = s.answers.filter((a) => a.id !== id);
   s.versions = s.versions.filter((v) => v.answerId !== id);
-  if (typeof window !== "undefined") {
+  const saved = write(s);
+  if (saved.ok && typeof window !== "undefined") {
     const key = "cabin-application-deletions-v1";
     try {
       const prior = JSON.parse(localStorage.getItem(key) ?? "[]");
       const ids = Array.isArray(prior) ? prior : [];
-      localStorage.setItem(
+      safeLocalStorageWrite(
         key,
-        JSON.stringify(Array.from(new Set([...ids, id])).slice(-100)),
+        Array.from(new Set([...ids, id])).slice(-100),
+        { category: "application" },
       );
     } catch {}
   }
-  write(s);
+  return saved;
 }
 export function restoreAnswerVersion(answerId: string, versionId: string) {
   const source = read().versions.find(
@@ -1061,8 +1063,7 @@ export function duplicateForAirline(answerId: string, airlineId?: string) {
   };
   s.answers = [copy, ...s.answers].slice(0, 100);
   s.versions.push(version);
-  write(s);
-  return copy;
+  return write(s).ok ? copy : null;
 }
 export function recordApplicationProgress(
   answerId: string,
@@ -1092,7 +1093,7 @@ export function recordApplicationProgress(
   s.progress.answerContributions[answerId] = [...done, key];
   s.progress.dailyGains[day] = used + 1;
   s.progress.capabilityGains[key] = (s.progress.capabilityGains[key] ?? 0) + 1;
-  write(s);
+  return write(s);
 }
 export const getApplicationCapabilityGains = () =>
   read().progress.capabilityGains;

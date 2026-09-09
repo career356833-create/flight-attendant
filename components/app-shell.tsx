@@ -17,6 +17,7 @@ import { startLearningSyncCoordinator } from '@/lib/supabase/learning-sync-repos
 import { startApplicationSyncCoordinator } from '@/lib/supabase/application-sync-repository'
 import { getProfileCompletionStatus } from '@/lib/supabase/profile-completion-service'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { LocalStorageFailureNotice } from '@/components/local-storage-failure-notice'
 
 type View = 'landing' | 'onboarding' | 'home' | 'auth' | 'admin' | 'ai-admin'
 type CallbackState='exchanging'|'completed'|'failed'
@@ -87,6 +88,7 @@ export function AppShell() {
           'md:shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]',
         )}
       >
+        <LocalStorageFailureNotice />
         {oauthExchanging ? <div className="flex h-full items-center justify-center px-8"><div role="status" aria-live="polite" className="text-center"><div aria-hidden="true" className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-navy/20 border-t-navy"/><p className="mt-5 text-base font-bold text-navy">로그인 정보를 확인하고 있어요</p><p className="mt-2 text-sm text-muted-foreground">잠시만 기다려 주세요</p></div></div> : view === 'admin' ? <AirlineKnowledgeAdmin onExit={()=>setView('landing')} /> : view === 'ai-admin' ? <AiSettingsAdmin onExit={()=>setView('landing')} /> : view === 'auth' ? <AuthScreen onBack={()=>setView('landing')} onAuthenticated={()=>void handleAuthenticated()} initialOAuthError={oauthError}/> : view === 'landing' ? (
           <VideoLanding onStart={() => setView(completed ? 'home' : 'onboarding')} onLogin={()=>setView('auth')} />
         ) : view === 'onboarding' ? (

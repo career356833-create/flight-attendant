@@ -3,6 +3,7 @@
 // scoring engine without changing the UI.
 import { onboardingKo } from '@/lib/onboarding-i18n'
 import { airlineById, findAirlineByLegacyValue, type AirlineSelection } from '@/lib/airline-data'
+import { safeLocalStorageWrite } from '@/lib/safe-local-storage'
 
 /* ---------------------------------- Types --------------------------------- */
 
@@ -555,7 +556,7 @@ export function loadOnboarding(): StoredOnboarding | null {
     const parsed = migrateStoredOnboarding(JSON.parse(raw) as StoredOnboarding)
     if (!parsed || typeof parsed.completed !== 'boolean' || !parsed.answers) throw new Error('Invalid onboarding data')
     if (parsed.completed && (!parsed.diagnosis || !parsed.diagnosis.skillScores || !Array.isArray(parsed.diagnosis.starterPlan))) throw new Error('Outdated onboarding schema')
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+    safeLocalStorageWrite(STORAGE_KEY, parsed, { category: 'profile' })
     return parsed
   } catch {
     window.localStorage.removeItem(STORAGE_KEY)
@@ -563,14 +564,11 @@ export function loadOnboarding(): StoredOnboarding | null {
   }
 }
 
-export function saveOnboarding(data: Omit<StoredOnboarding, 'savedAt'> & { savedAt?: string }): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, savedAt: data.savedAt ?? new Date().toISOString(), schemaVersion: CURRENT_SCHEMA_VERSION }))
-    window.dispatchEvent(new Event('cabin:learning-local-changed'))
-  } catch {
-    // Storage may be unavailable (private mode); fail silently for the prototype.
-  }
+export function saveOnboarding(data: Omit<StoredOnboarding, 'savedAt'> & { savedAt?: string }) {
+  if (typeof window === 'undefined') return { ok: false as const, reason: 'storage_unavailable' as const }
+  const result = safeLocalStorageWrite(STORAGE_KEY, { ...data, savedAt: data.savedAt ?? new Date().toISOString(), schemaVersion: CURRENT_SCHEMA_VERSION }, { category: 'profile' })
+  if (result.ok) window.dispatchEvent(new Event('cabin:learning-local-changed'))
+  return result
 }
 
 export function clearOnboarding(): void {

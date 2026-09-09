@@ -266,14 +266,20 @@ export function SelfIntroductionFlow({
       pronunciationAnalysis,
       practiceLanguage,
     };
-    saveSelfIntroductionAttempt(next);
-    const audioSave = await saveSelfIntroductionAudioSafely(next.id, blob, saveAttemptAudio);
+    const localSave = saveSelfIntroductionAttempt(next);
+    const audioSave = await saveSelfIntroductionAudioSafely(
+      next.id,
+      localSave.ok ? blob : null,
+      saveAttemptAudio,
+    );
     setAudioSaveWarning(audioSave.warning);
-    queueTrainingAttempt("self_introduction", next, audioSave.audioSaved);
-    recordAttemptProgress(next);
+    if (localSave.ok) {
+      queueTrainingAttempt("self_introduction", next, audioSave.audioSaved);
+      recordAttemptProgress(next);
+      onComplete(next);
+    }
     setAttempt(next);
     setStep("result");
-    onComplete(next);
   }, [
     blob,
     elapsed,

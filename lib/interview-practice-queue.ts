@@ -1,5 +1,6 @@
 import {getPracticeQuestionsForAirline} from './airline-knowledge-repository'
 import {interviewQuestionById,type InterviewAttempt,type InterviewQuestion} from './interview-practice-data'
+import {safeLocalStorageWrite} from './safe-local-storage'
 
 export type InterviewQuestionFavorite={questionId:string;createdAt:string;source?:'question'|'result';airlineId?:string}
 export type PracticeQueueReason='manual'|'favorite'|'missing_result'|'missing_action'|'weak_evidence'|'generic_answer'|'safety'|'filler'|'long_pause'|'retake_requested'
@@ -22,7 +23,7 @@ export function normalizeInterviewPracticeQueueItem(raw:unknown):InterviewPracti
 const rawArray=(key:string):unknown[]=>{if(typeof localStorage==='undefined')return[];try{const value=JSON.parse(localStorage.getItem(key)??'[]');return Array.isArray(value)?value:[]}catch{return[]}}
 const favorites=()=>{const seen=new Set<string>(),result:InterviewQuestionFavorite[]=[];for(const raw of rawArray(FAVORITES)){const item=normalizeInterviewQuestionFavorite(raw);if(item&&!seen.has(item.questionId)){seen.add(item.questionId);result.push(item)}}return result}
 const queue=()=>{const seen=new Set<string>(),result:InterviewPracticeQueueItem[]=[];for(const raw of rawArray(QUEUE)){const item=normalizeInterviewPracticeQueueItem(raw);if(item&&!seen.has(item.id)){seen.add(item.id);result.push(item)}}return result}
-const write=(key:string,value:unknown)=>{if(typeof localStorage==='undefined')return false;try{localStorage.setItem(key,JSON.stringify(value));if(typeof window!=='undefined')window.dispatchEvent(new Event(eventName));return true}catch{return false}}
+const write=(key:string,value:unknown)=>{const result=safeLocalStorageWrite(key,value,{category:key===FAVORITES?'favorite':'practice_queue'});if(result.ok&&typeof window!=='undefined')window.dispatchEvent(new Event(eventName));return result.ok}
 export function isAllowedInterviewQuestion(question:InterviewQuestion,airlineId?:string){if(interviewQuestionById.has(question.id))return true;if(!airlineId||!question.airlineTags?.includes(airlineId))return false;return getPracticeQuestionsForAirline({airlineId,includeGeneralQuestions:false}).some(item=>item.id===question.id)}
 export function resolveInterviewQuestion(questionId:string,airlineId?:string){return interviewQuestionById.get(questionId)??(airlineId?getPracticeQuestionsForAirline({airlineId,includeGeneralQuestions:false}).find(item=>item.id===questionId):undefined)}
 export function sortPracticeQueue(items:InterviewPracticeQueueItem[]){return [...items].filter(item=>item.status==='open').sort((a,b)=>a.priority-b.priority||getSafeTimestamp(a.createdAt)-getSafeTimestamp(b.createdAt)||a.id.localeCompare(b.id))}

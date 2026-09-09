@@ -10,6 +10,7 @@ import {
   removeAttemptAudio,
   writeAttemptAudio,
 } from "@/lib/attempt-audio-storage";
+import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
 
 export type TimingAssessment =
   | "too_brief_for_content"
@@ -346,14 +347,13 @@ export function loadSelfIntroductionAttempts(): SelfIntroductionAttempt[] {
 
 export function saveSelfIntroductionAttempt(attempt: SelfIntroductionAttempt) {
   const attempts = loadSelfIntroductionAttempts();
-  localStorage.setItem(
+  return safeLocalStorageWrite(
     ATTEMPTS_KEY,
-    JSON.stringify(
-      [attempt, ...attempts.filter((item) => item.id !== attempt.id)].slice(
-        0,
-        20,
-      ),
+    [attempt, ...attempts.filter((item) => item.id !== attempt.id)].slice(
+      0,
+      20,
     ),
+    { category: "self_introduction_attempt" },
   );
 }
 
@@ -398,8 +398,10 @@ export function recordAttemptProgress(attempt: SelfIntroductionAttempt) {
       { attemptId: attempt.id, delta, createdAt: attempt.createdAt },
     ],
   };
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(next));
-  return next;
+  const saved = safeLocalStorageWrite(PROGRESS_KEY, next, {
+    category: "learning",
+  });
+  return saved.ok ? next : progress;
 }
 
 export async function saveAttemptAudio(attemptId: string, blob: Blob) {

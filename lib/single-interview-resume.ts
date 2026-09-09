@@ -1,5 +1,6 @@
 import type { InterviewAttempt, InterviewPracticeConfig } from './interview-practice-data'
 import type { WeeklyTaskContext } from './weekly-task-completion'
+import {safeLocalStorageWrite} from './safe-local-storage'
 
 export const SINGLE_INTERVIEW_RESUME_KEY='cabin-single-interview-resume-v1'
 
@@ -48,6 +49,6 @@ export function canCompareInterviewRetake(current:InterviewAttempt,previous?:Int
 
 export const singleInterviewResumeRepository={
   load():SingleInterviewResume|null{if(typeof window==='undefined')return null;try{return normalizeSingleInterviewResume(JSON.parse(localStorage.getItem(SINGLE_INTERVIEW_RESUME_KEY)??'null'))}catch{return null}},
-  save(value:SingleInterviewResume){if(typeof window==='undefined')return;try{localStorage.setItem(SINGLE_INTERVIEW_RESUME_KEY,JSON.stringify(value));window.dispatchEvent(new Event('cabin:single-interview-resume-changed'))}catch{/* Local resume is optional. */}},
+  save(value:SingleInterviewResume){if(typeof window==='undefined')return{ok:false as const,reason:'storage_unavailable' as const};const result=safeLocalStorageWrite(SINGLE_INTERVIEW_RESUME_KEY,value,{category:'resume'});if(result.ok)window.dispatchEvent(new Event('cabin:single-interview-resume-changed'));return result},
   clear(){if(typeof window==='undefined')return;try{localStorage.removeItem(SINGLE_INTERVIEW_RESUME_KEY);window.dispatchEvent(new Event('cabin:single-interview-resume-changed'))}catch{/* Local resume is optional. */}},
 }

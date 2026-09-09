@@ -1,4 +1,5 @@
 import { interviewQuestions, type InterviewQuestion } from '@/lib/interview-practice-data'
+import { safeLocalStorageWrite } from '@/lib/safe-local-storage'
 
 export type ExperienceCategory='customer_service'|'problem_solving'|'teamwork'|'conflict_resolution'|'safety_judgment'|'responsibility'|'failure_and_growth'|'adaptability'|'leadership'|'multicultural'|'other'
 export type ExperienceCompetency='customer_orientation'|'communication'|'teamwork'|'problem_solving'|'conflict_management'|'safety_awareness'|'responsibility'|'adaptability'|'leadership'|'empathy'|'service_recovery'|'cross_cultural_communication'
@@ -12,10 +13,10 @@ const categories:ExperienceCategory[]=['customer_service','problem_solving','tea
 const valid=(v:unknown):v is CareerExperience=>{if(!v||typeof v!=='object')return false;const x=v as Partial<CareerExperience>;return typeof x.id==='string'&&typeof x.title==='string'&&categories.includes(x.category as ExperienceCategory)&&typeof x.situation==='string'&&typeof x.action==='string'}
 export const experienceRepository={
   load():ExperienceStore{if(typeof window==='undefined')return{schemaVersion:VERSION,experiences:[],updatedAt:new Date(0).toISOString()};try{const raw=JSON.parse(localStorage.getItem(KEY)??'{}');const experiences=Array.isArray(raw.experiences)?raw.experiences.filter(valid).slice(0,100):[];return{schemaVersion:VERSION,experiences,updatedAt:typeof raw.updatedAt==='string'?raw.updatedAt:new Date().toISOString()}}catch{return{schemaVersion:VERSION,experiences:[],updatedAt:new Date().toISOString()}}},
-  save(experiences:CareerExperience[]){const store={schemaVersion:VERSION,experiences:experiences.filter(valid).slice(0,100),updatedAt:new Date().toISOString()};localStorage.setItem(KEY,JSON.stringify(store));return store},
-  upsert(experience:CareerExperience){const store=this.load(),exists=store.experiences.some(x=>x.id===experience.id),saved=this.save([experience,...store.experiences.filter(x=>x.id!==experience.id)]);emitMutation({operation:exists?'update':'create',entityId:experience.id,value:experience});return saved},
-  remove(id:string){const store=this.load(),saved=this.save(store.experiences.filter(x=>x.id!==id));emitMutation({operation:'delete',entityId:id});return saved},
-  duplicate(id:string){const original=this.load().experiences.find(x=>x.id===id);if(!original)return null;const now=new Date().toISOString();const copy={...original,id:crypto.randomUUID(),title:`${original.title} 복사본`,createdAt:now,updatedAt:now,usageCount:0,lastUsedAt:undefined,sourceExperienceId:original.id};this.upsert(copy);return copy},
+  save(experiences:CareerExperience[]){const store={schemaVersion:VERSION,experiences:experiences.filter(valid).slice(0,100),updatedAt:new Date().toISOString()};return safeLocalStorageWrite(KEY,store,{category:'experience'})},
+  upsert(experience:CareerExperience){const store=this.load(),exists=store.experiences.some(x=>x.id===experience.id),saved=this.save([experience,...store.experiences.filter(x=>x.id!==experience.id)]);if(saved.ok)emitMutation({operation:exists?'update':'create',entityId:experience.id,value:experience});return saved},
+  remove(id:string){const store=this.load(),saved=this.save(store.experiences.filter(x=>x.id!==id));if(saved.ok)emitMutation({operation:'delete',entityId:id});return saved},
+  duplicate(id:string){const original=this.load().experiences.find(x=>x.id===id);if(!original)return null;const now=new Date().toISOString();const copy={...original,id:crypto.randomUUID(),title:`${original.title} 복사본`,createdAt:now,updatedAt:now,usageCount:0,lastUsedAt:undefined,sourceExperienceId:original.id};return this.upsert(copy).ok?copy:null},
   markUsed(id:string){const item=this.load().experiences.find(x=>x.id===id);if(!item)return;this.upsert({...item,usageCount:item.usageCount+1,lastUsedAt:new Date().toISOString()})}
 }
 export const emptyExperience=(category:ExperienceCategory='customer_service'):CareerExperience=>{const now=new Date().toISOString();return{id:typeof crypto!=='undefined'?crypto.randomUUID():`experience-${Date.now()}`,title:'',category,situation:'',task:'',action:'',result:'',learning:'',roleConnection:'',shortSummary:'',competencyTags:[],questionTags:[],status:'draft',createdAt:now,updatedAt:now,usageCount:0,source:'manual'}}
@@ -37,8 +38,8 @@ export function recordExperienceProgress(e:CareerExperience){
       if(['structured','interview_ready'].includes(e.status))gains.push('interview_communication')
       if(e.category==='safety_judgment'&&e.status==='interview_ready')gains.push('safety_and_role_judgment')
       if(e.category==='customer_service'&&e.status==='interview_ready')gains.push('customer_situation_handling')
-      gains=gains.slice(0,Math.max(0,3-used));p.experienceGains={...p.experienceGains,[e.id]:gains};p.dailyGains={...p.dailyGains,[day]:used+gains.length};p.capabilityGains=p.capabilityGains??{};gains.forEach(k=>p.capabilityGains[k]=Number(p.capabilityGains[k]??0)+1);localStorage.setItem(PROGRESS_KEY,JSON.stringify(p))
+      gains=gains.slice(0,Math.max(0,3-used));p.experienceGains={...p.experienceGains,[e.id]:gains};p.dailyGains={...p.dailyGains,[day]:used+gains.length};p.capabilityGains=p.capabilityGains??{};gains.forEach(k=>p.capabilityGains[k]=Number(p.capabilityGains[k]??0)+1);const saved=safeLocalStorageWrite(PROGRESS_KEY,p,{category:'learning'});if(!saved.ok)return saved
     }
     window.dispatchEvent(new CustomEvent('cabin:experience-saved',{detail:{experienceId:e.id}}))
-  }catch{localStorage.removeItem(PROGRESS_KEY)}
+  }catch{return{ok:false as const,reason:'serialization_failed' as const}}
 }
