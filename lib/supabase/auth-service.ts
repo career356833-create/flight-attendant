@@ -2,7 +2,7 @@ import type {User} from '@supabase/supabase-js'
 import {getSupabaseBrowserClient} from './client'
 
 export type AuthResult={ok:boolean;message?:string;verificationPending?:boolean}
-const unavailable=():AuthResult=>({ok:false,message:'클라우드 저장이 아직 설정되지 않았어요. 지금은 이 기기에 안전하게 저장됩니다.'})
+const unavailable=():AuthResult=>({ok:false,message:'계정 동기화가 아직 설정되지 않았어요. 현재 기록은 이 기기에 저장됩니다.'})
 const safeReturnTo=(value:string|null)=>value?.startsWith('/')&&!value.startsWith('//')?value:'/'
 export const authService={
   async currentUser():Promise<User|null>{const c=getSupabaseBrowserClient();if(!c)return null;return (await c.auth.getUser()).data.user},

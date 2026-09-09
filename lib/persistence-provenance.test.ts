@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {readFileSync} from 'node:fs'
+import {derivePersistencePresentation,persistenceCopy,persistencePolicyCopy} from './persistence-provenance'
+
+const derive=(patch:Partial<Parameters<typeof derivePersistencePresentation>[0]>={})=>derivePersistencePresentation({localWrite:'succeeded',syncSupported:true,...patch})
+
+test('login alone is not evidence of sync',()=>assert.equal(derive().status,'local_only'))
+test('unsupported sync is local only',()=>assert.equal(derive({syncSupported:false}).status,'not_supported'))
+test('pending remote work is reported as pending',()=>assert.equal(derive({syncState:'pending'}).status,'sync_pending'))
+test('syncing remote work is still pending',()=>assert.equal(derive({syncState:'syncing'}).status,'sync_pending'))
+test('confirmed current remote write is synced',()=>assert.equal(derive({remoteWriteSucceeded:true}).status,'synced'))
+test('remote failure preserves local success',()=>assert.equal(derive({syncState:'failed'}).status,'sync_failed'))
+test('local failure never claims saved',()=>assert.equal(derive({localWrite:'failed'}).status,'local_write_failed'))
+test('remote unavailable keeps honest local state',()=>assert.equal(derive({syncState:'unavailable'}).status,'remote_unavailable'))
+test('stale remote version is pending',()=>assert.equal(derive({remoteWriteSucceeded:true,localVersion:'2',remoteVersion:'1'}).status,'sync_pending'))
+test('matching versions can be synced',()=>assert.equal(derive({remoteWriteSucceeded:true,localVersion:'2',remoteVersion:'2'}).status,'synced'))
+test('offline supported data remains local and pending',()=>assert.equal(derive({offline:true}).status,'sync_pending'))
+test('unknown local result never claims saved',()=>assert.equal(derive({localWrite:'unknown'}).status,'unknown'))
+test('Korean pending label names device storage first',()=>assert.match(persistenceCopy('sync_pending','ko').label,/이 기기에 저장됨/))
+test('English pending label names device storage first',()=>assert.match(persistenceCopy('sync_pending','en').label,/Saved on this device/))
+test('Korean remote failure does not say local save failed',()=>assert.match(persistenceCopy('sync_failed','ko').description,/이 기기에 남아/))
+test('English remote failure does not say local save failed',()=>assert.match(persistenceCopy('sync_failed','en').description,/remains on this device/))
+test('audio policy is explicitly local only',()=>assert.match(persistencePolicyCopy.ko.audioLocalOnly,/이 기기에만/))
+test('audio policy makes no cloud backup claim',()=>assert.doesNotMatch(persistencePolicyCopy.en.audioLocalOnly,/cloud|backup/i))
+test('application restore disclaimer rejects full restore guarantee',()=>assert.match(persistencePolicyCopy.ko.incompleteRestore,/전체 기록 복원을 보장하지/))
+test('auth and sync are explicitly separate',()=>assert.match(persistencePolicyCopy.en.accountConnected,/separate/))
+test('export is not described as a full backup',()=>assert.match(persistencePolicyCopy.en.partialExport,/not a full account backup/))
+test('Korean copy has no false security phrase',()=>assert.doesNotMatch(JSON.stringify(persistencePolicyCopy.ko),/안전하게 저장|영구 백업/))
+test('English copy has no securely backed up claim',()=>assert.doesNotMatch(JSON.stringify(persistencePolicyCopy.en),/securely backed up|never lose/i))
+test('account UI does not equate authenticated user with synced status',()=>{const source=readFileSync(new URL('../components/account/account-summary.tsx',import.meta.url),'utf8');assert.doesNotMatch(source,/setStatus\(u\?'synced'/)})
+test('localized account labels avoid the old security claims',()=>{for(const file of ['locales/ko.json','locales/en.json']){const source=readFileSync(new URL(file,import.meta.url),'utf8');assert.doesNotMatch(source,/계정에 안전하게 저장됨|Safely saved to your account/)}})
+test('account UI identifies local audio policy',()=>{const source=readFileSync(new URL('../components/account/account-summary.tsx',import.meta.url),'utf8');assert.match(source,/persistencePolicyCopy\.ko\.audioLocalOnly/)})
+test('account UI identifies partial export scope',()=>{const source=readFileSync(new URL('../components/account/account-summary.tsx',import.meta.url),'utf8');assert.match(source,/persistencePolicyCopy\.ko\.partialExport/)})
+test('auth screen does not promise cross-device restore',()=>{const source=readFileSync(new URL('../components/auth/auth-screen.tsx',import.meta.url),'utf8');assert.doesNotMatch(source,/기록을 어디서나 이어가세요|다른 기기에서도 이어갈 수 있어요/)})
+test('auth screen separates sign-in from supported sync coverage',()=>{const source=readFileSync(new URL('../components/auth/auth-screen.tsx',import.meta.url),'utf8');assert.match(source,/로그인 후 지원되는 항목의 계정 동기화/)})
+test('auth screen avoids false secure-cloud status labels',()=>{const source=readFileSync(new URL('../components/auth/auth-screen.tsx',import.meta.url),'utf8');assert.doesNotMatch(source,/SECURE CLOUD SYNC|SECURE ACCOUNT/)})
