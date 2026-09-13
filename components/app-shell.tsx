@@ -5,7 +5,7 @@ import { VideoLanding } from '@/components/video-landing'
 import { HomeDashboard } from '@/components/home-dashboard'
 import { cn } from '@/lib/utils'
 import { OnboardingFlow } from '@/components/onboarding/onboarding-flow'
-import { clearOnboarding, emptyAnswers, loadOnboarding, saveOnboarding, type DiagnosisResult, type OnboardingAnswers } from '@/lib/onboarding-data'
+import { calculateDiagnosis, clearOnboarding, emptyAnswers, loadOnboarding, saveOnboarding, type DiagnosisResult, type OnboardingAnswers } from '@/lib/onboarding-data'
 import { AirlineKnowledgeAdmin } from '@/components/admin/airline-knowledge-admin'
 import { AiSettingsAdmin } from '@/components/admin/ai-settings-admin'
 import { AuthScreen } from '@/components/auth/auth-screen'
@@ -73,6 +73,14 @@ export function AppShell() {
     setAnswers(nextAnswers); setDiagnosis(result); setCompleted(true); setView('home')
   }
 
+  function updateAirlinePreferences(nextAnswers: OnboardingAnswers) {
+    const nextDiagnosis = calculateDiagnosis(nextAnswers)
+    saveOnboarding({ completed: true, answers: nextAnswers, diagnosis: nextDiagnosis })
+    setAnswers(nextAnswers)
+    setDiagnosis(nextDiagnosis)
+    setCompleted(true)
+  }
+
   return (
     <div className="flex min-h-dvh w-full justify-center bg-navy md:p-4 xl:p-6">
       <div
@@ -95,7 +103,7 @@ export function AppShell() {
           <div className="h-full animate-in fade-in duration-500"><OnboardingFlow initialAnswers={answers} onSkip={() => setView('home')} onComplete={finishOnboarding} /></div>
         ) : (
           <div className="h-full animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <HomeDashboard diagnosis={diagnosis} onboardingAnswers={answers} onEditDiagnosis={() => setView('onboarding')} onLogin={()=>setView('auth')} initialAccountOpen={openAccount} />
+            <HomeDashboard diagnosis={diagnosis} onboardingAnswers={answers} onUpdateAirlinePreferences={updateAirlinePreferences} onEditDiagnosis={() => setView('onboarding')} onLogin={()=>setView('auth')} initialAccountOpen={openAccount} />
           </div>
         )}
         {process.env.NODE_ENV === 'development' && <><button type="button" onClick={()=>setView('admin')} className="absolute left-3 top-3 z-50 rounded-full bg-black/50 px-2 py-1 text-[10px] text-white opacity-30 hover:opacity-100 focus-visible:opacity-100">ADMIN</button><button type="button" onClick={()=>setView('ai-admin')} className="absolute left-16 top-3 z-50 rounded-full bg-black/50 px-2 py-1 text-[10px] text-white opacity-30 hover:opacity-100 focus-visible:opacity-100">AI</button><button type="button" onClick={() => { clearOnboarding(); setAnswers(emptyAnswers); setDiagnosis(null); setCompleted(false); setView('landing') }} className="absolute right-3 top-3 z-50 rounded-full bg-black/50 px-2 py-1 text-[10px] text-white opacity-30 hover:opacity-100 focus-visible:opacity-100">RESET</button></>}

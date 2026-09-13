@@ -4,7 +4,7 @@ import {safeLocalStorageWrite} from './safe-local-storage'
 
 export const SINGLE_INTERVIEW_RESUME_KEY='cabin-single-interview-resume-v1'
 
-export type SingleInterviewResumeSource='direct'|'daily_plan'|'weekly_task'|'queue'|'favorite'|'application_drill'|'mock_report'
+export type SingleInterviewResumeSource='direct'|'daily_plan'|'weekly_task'|'queue'|'favorite'|'application_drill'|'mock_report'|'airline_workspace'
 export type InterviewPracticeReturnTarget='interview'|'weekly-report'
 export const interviewReturnTargetForSource=(source?:SingleInterviewResumeSource):InterviewPracticeReturnTarget=>source==='weekly_task'?'weekly-report':'interview'
 export type SingleInterviewResume={
