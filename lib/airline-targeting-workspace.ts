@@ -11,6 +11,12 @@ import type { ApplicationAnswer } from "@/lib/application-answer-repository";
 import type { CareerExperience } from "@/lib/experience-repository";
 import type { InterviewAttempt } from "@/lib/interview-practice-data";
 import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
+import {
+  airlineOfficialBatch1Fleet,
+  airlineOfficialBatch1Profiles,
+  airlineOfficialBatch1Routes,
+  isAllowedOfficialAirlineSource,
+} from "@/lib/airline-official-data-batch-1";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -24,6 +30,7 @@ export type AirlineFact = {
   sourceUrl: string;
   sourceTitle: string;
   sourceAuthority: "AIRLINE_OFFICIAL" | "GOVERNMENT_OR_AUTHORITY" | "MANUFACTURER" | "VERIFIED_ARCHIVE";
+  retrievedAt?: string;
   verifiedAt: string;
   status: AirlineFactStatus;
 };
@@ -137,9 +144,10 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
+    const official = airlineOfficialBatch1Profiles.find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
-    const sources = published?.resources.map(resourceFact) ?? [];
+    const sources = official?.sources.filter((source) => isAllowedOfficialAirlineSource(source.sourceUrl)) ?? published?.resources.map(resourceFact) ?? [];
     const localized = canonical?.aliases.find((alias) => /[가-힣]/.test(alias));
     const names = countryNames[item.country] ?? [item.country, item.country];
     return {
@@ -154,18 +162,28 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       region: item.region,
       operationScope: deriveOperationScope(routes.filter((route) => route.airlineId === item.id && route.status === "CONFIRMED")),
       carrierType: carrierType(canonical?.businessModel),
-      headquarters: published?.overview.headquarters,
-      hubs: published?.overview.primaryHubs ?? [],
-      website: published?.overview.website,
-      careersUrl: published?.recruitmentProfile.officialCareerPageUrl,
-      summary: published?.overview.brandSummary,
-      verified: raw?.reviewStatus === "verified",
-      published: raw?.publishStatus === "published",
-      aiContextEnabled: Boolean(raw?.aiContextEnabled),
+      headquarters: official?.headquarters ?? published?.overview.headquarters,
+      hubs: official?.hubs ?? published?.overview.primaryHubs ?? [],
+      website: official?.website ?? published?.overview.website,
+      careersUrl: official?.careersUrl ?? published?.recruitmentProfile.officialCareerPageUrl,
+      summary: official?.summary ?? published?.overview.brandSummary,
+      verified: official?.verified ?? raw?.reviewStatus === "verified",
+      published: official?.published ?? raw?.publishStatus === "published",
+      aiContextEnabled: official ? official.aiContextEnabled : Boolean(raw?.aiContextEnabled),
       sources,
-      lastVerifiedAt: published?.lastReviewedAt,
+      lastVerifiedAt: official?.lastVerifiedAt ?? published?.lastReviewedAt,
     };
   });
+}
+
+export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
+  return [...airlineOfficialBatch1Routes.filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)), ...localRoutes]
+    .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
+}
+
+export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
+  return [...airlineOfficialBatch1Fleet.filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)), ...localFleet]
+    .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 
 export function filterAirlines(profiles: AirlineWorkspaceProfile[], filters: { search?: string; countryGroup?: AirlineCountryGroup; operationScope?: AirlineOperationScope | "ALL"; carrierType?: AirlineCarrierType | "ALL" }) {
