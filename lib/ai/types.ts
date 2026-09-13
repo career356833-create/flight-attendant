@@ -4,7 +4,7 @@ import type { CareerExperience, ExperienceCategory, ExperienceCompetency } from 
 import type { InterviewAnswerAnalysis, InterviewQuestion } from '@/lib/interview-practice-data'
 import type { SelfIntroductionAnalysis } from '@/lib/self-introduction-data'
 
-export type AiProviderId='mock'|'server'
+export type AiProviderId='deterministic'|'mock'|'server'
 export type SttProviderId='mock'|'browser_speech'|'server'
 export type AiTaskType='interview_analysis'|'self_introduction_analysis'|'experience_structuring'|'application_draft_generation'|'application_draft_revision'|'application_answer_analysis'|'coach_message_generation'
 export type AirlineApplicationContext={airlineId:string;airlineName?:string;servicePhilosophy?:string;coreValues:string[];cabinCrewRoleSummary?:string;lastReviewedAt?:string}

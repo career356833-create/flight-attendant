@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { landingContent } from '@/lib/mock-data'
+import { landingContent } from '@/lib/landing-content'
 import { cn } from '@/lib/utils'
 
 type VideoLandingProps = {

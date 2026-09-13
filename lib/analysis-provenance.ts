@@ -40,8 +40,10 @@ export function analysisProvenanceFromProvider(input: {
   providerId?: string
   warnings?: Pick<AiWarning, 'code'>[]
 }): AnalysisProvenance {
-  const fallback = input.warnings?.some(warning => warning.code === 'mock_result' || warning.code === 'fallback_used')
-  if (input.providerId === 'mock' || fallback) return { kind: 'mock', provider: input.providerId, isActual: false }
+  const mock = input.warnings?.some(warning => warning.code === 'mock_result')
+  if (input.providerId === 'mock' || mock) return { kind: 'mock', provider: input.providerId, isActual: false }
+  if (input.ok && input.providerId === 'deterministic') return { kind: 'deterministic', provider: 'deterministic', isActual: false }
+  if (input.warnings?.some(warning => warning.code === 'fallback_used')) return { kind: 'deterministic', provider: input.providerId, isActual: false }
   if (input.ok && input.providerId === 'server') return { kind: 'actual_ai', provider: 'server', isActual: true }
   return { kind: 'unknown', provider: input.providerId, isActual: false }
 }

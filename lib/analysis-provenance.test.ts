@@ -17,7 +17,8 @@ test('actual server AI response permits the AI label', () => {
 
 test('deterministic analysis does not permit the AI label', () => assert.equal(canUseActualAiLabel(deterministicAnalysisProvenance()), false))
 test('mock provider is never actual AI', () => assert.equal(analysisProvenanceFromProvider({ ok: true, providerId: 'mock' }).kind, 'mock'))
-test('fallback warning is classified as mock even with server provider', () => assert.equal(analysisProvenanceFromProvider({ ok: true, providerId: 'server', warnings: [{ code: 'fallback_used' }] }).kind, 'mock'))
+test('fallback warning is classified as deterministic rather than actual AI', () => assert.equal(analysisProvenanceFromProvider({ ok: true, providerId: 'server', warnings: [{ code: 'fallback_used' }] }).kind, 'deterministic'))
+test('deterministic provider has explicit rule-based provenance', () => assert.deepEqual(analysisProvenanceFromProvider({ ok: true, providerId: 'deterministic' }), { kind: 'deterministic', provider: 'deterministic', isActual: false }))
 test('mock warning is classified as mock', () => assert.equal(analysisProvenanceFromProvider({ ok: true, providerId: 'server', warnings: [{ code: 'mock_result' }] }).kind, 'mock'))
 test('unknown provider uses honest fallback', () => assert.equal(analysisProvenanceFromProvider({ ok: true, providerId: 'other' }).kind, 'unknown'))
 test('failed provider response is not presented as actual AI', () => assert.equal(analysisProvenanceFromProvider({ ok: false, providerId: 'server' }).kind, 'unknown'))
