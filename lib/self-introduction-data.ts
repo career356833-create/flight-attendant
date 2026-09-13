@@ -5,6 +5,8 @@ import type { InterviewSpeechMetrics } from "@/lib/interview-audio/speech-analys
 import type { PronunciationAnalysisResult } from "@/lib/ai/pronunciation-provider";
 import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import type { TranscriptIntegrity } from "@/lib/interview-practice-data";
+import type { NonverbalSignalResult } from "@/lib/nonverbal-signal-coach";
+import type { AnswerUnderstanding, ContentAnalysisState, TranscriptReview } from "@/lib/speech-understanding-v2";
 import {
   readAttemptAudio,
   removeAttemptAudio,
@@ -78,6 +80,9 @@ export type SelfIntroductionAttempt = {
   audioPath?: string;
   transcript: string;
   transcriptIntegrity?: TranscriptIntegrity;
+  transcriptReview?: TranscriptReview;
+  contentAnalysisState?: ContentAnalysisState;
+  speechUnderstanding?: AnswerUnderstanding;
   durationSeconds: number;
   analysis: SelfIntroductionAnalysis;
   targetAirlineId?: string;
@@ -92,6 +97,7 @@ export type SelfIntroductionAttempt = {
   speechMetrics?: InterviewSpeechMetrics;
   pronunciationAnalysis?: PronunciationAnalysisResult;
   practiceLanguage?: SelfIntroductionLanguage;
+  nonverbalSignal?: NonverbalSignalResult;
 };
 
 export type SelfIntroductionProgress = {

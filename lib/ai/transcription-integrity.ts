@@ -5,7 +5,8 @@ import type { SelfIntroductionAnalysis } from '@/lib/self-introduction-data'
 export function transcriptionIntegrity(response:AiResponse<TranscriptionResult>):TranscriptIntegrity{
   if(!response.ok)return{providerId:response.providerId,mode:'unavailable',isActualTranscription:false}
   const mode=response.data.transcriptionMode??'unknown'
-  return{providerId:response.providerId,mode,isActualTranscription:mode==='actual_audio'&&response.data.isActualTranscription===true}
+  const isActualTranscription=mode==='actual_audio'&&response.data.isActualTranscription===true
+  return{providerId:response.providerId,mode,isActualTranscription,transcriptProvenance:isActualTranscription?'actual_audio':undefined}
 }
 
 export function actualTranscript(response:AiResponse<TranscriptionResult>){

@@ -38,3 +38,7 @@ test('readiness is described as a self-check rather than hiring probability', ()
 test('English readiness is not described as hiring probability', () => assert.match(readinessPresentation('en').description, /not a hiring probability/))
 test('provenance helpers do not introduce aggregate or hiring scores', () => assert.doesNotMatch(JSON.stringify({ deterministicAnalysisProvenance, presentation: analysisProvenancePresentation('deterministic') }), /overallScore|passProbability|hireProbability/))
 test('legacy unknown provenance stays safe', () => assert.equal(canUseActualAiLabel({ kind: 'unknown', isActual: false }), false))
+test('vision metrics have an explicit local observation label', () => {
+  assert.match(analysisProvenancePresentation('vision_metrics', 'ko').description, /기기에서/)
+  assert.equal(canUseActualAiLabel({ kind: 'vision_metrics', isActual: false }), false)
+})

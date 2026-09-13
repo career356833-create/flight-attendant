@@ -1,4 +1,5 @@
 export { SelfIntroductionFlow } from './self-introduction-flow'
+export { NonverbalCameraCheck, NonverbalSignalCard } from './nonverbal-signal-components'
 export {
   SelfIntroductionIntro,
   MicrophoneCheck,

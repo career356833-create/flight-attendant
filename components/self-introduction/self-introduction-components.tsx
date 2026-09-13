@@ -23,6 +23,8 @@ import {
 import { compareSelfIntroductionRetake, getSelfIntroductionChallengeGuide, SELF_INTRO_CHALLENGE_OPTIONS, type SelfIntroductionChallengeSeconds } from "@/lib/self-introduction-challenge";
 import type { SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import { AnalysisProvenanceHint } from "@/components/analysis-provenance-hint";
+import { NonverbalSignalCard } from "./nonverbal-signal-components";
+import { SpeechUnderstandingResult } from "@/components/speech-understanding/speech-understanding-components";
 
 const primary =
   "h-14 w-full rounded-2xl bg-navy px-5 font-semibold text-ivory transition active:scale-[.98] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
@@ -744,7 +746,9 @@ export function SelfIntroductionResult({
       {audioSaveWarning && <p role="status" className="mb-4 rounded-xl border border-gold/30 bg-secondary/60 p-3 text-sm text-midnight">{audioSaveWarning}</p>}
       {isHistoryRevisit && <section className="mb-5 rounded-2xl border border-border bg-card p-5"><span className="eyebrow text-gold">HISTORY</span><p className="mt-2 text-xs text-muted-foreground">{new Date(attempt.createdAt).toLocaleString('ko-KR')} · {attempt.targetSeconds ? `${attempt.targetSeconds}초` : '자유 연습'} · {attempt.practiceLanguage === 'ko' ? '한국어' : attempt.practiceLanguage === 'en' ? 'English' : '언어 정보 없음'}</p>{onRetakeSameConditions&&<button type="button" onClick={onRetakeSameConditions} className="mt-4 h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory">같은 조건으로 다시 연습</button>}</section>}
       <section className="rounded-3xl bg-navy p-5 text-ivory"><span className="text-xs font-bold text-gold">AUDIO ONLY</span><h2 className="mt-2 text-lg font-bold">녹음 완료 · {formatDurationWords(attempt.durationSeconds)}</h2><p className="mt-3 text-sm leading-relaxed">음성 전사 기능이 현재 연결되지 않아 자기소개 구조·필러·발화 속도 분석은 제공할 수 없습니다.</p></section>
+      <SpeechUnderstandingResult review={attempt.transcriptReview} understanding={attempt.speechUnderstanding} state={attempt.contentAnalysisState} className="mt-5" />
       {attempt.audioMetrics && <section className="mt-5 rounded-2xl border border-border bg-card p-5"><h2 className="font-bold text-navy">오디오 기반 지표</h2><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>평균 음량 <strong>{attempt.audioMetrics.volume.averageDbfs == null ? '측정 불가' : `${attempt.audioMetrics.volume.averageDbfs.toFixed(1)} dBFS`}</strong></p><p>긴 쉼 <strong>{attempt.audioMetrics.pauses.longCount}회</strong></p></div></section>}
+      <NonverbalSignalCard result={attempt.nonverbalSignal} locale={attempt.practiceLanguage} />
       <LocalAttemptAudio key={attempt.id} attemptId={attempt.id}/>
       <button className="mt-5 h-12 w-full rounded-xl bg-coral text-sm font-bold text-white" onClick={()=>onRetry('repeat')}>다시 연습하기</button>
       <div className="mt-7"><AttemptHistory attempts={history} onSelect={onSelectHistory} selectedAttemptId={attempt.id}/></div>
@@ -789,9 +793,11 @@ export function SelfIntroductionResult({
           </p>
         </div>
       </section>
+      <SpeechUnderstandingResult review={attempt.transcriptReview} understanding={attempt.speechUnderstanding} state={attempt.contentAnalysisState} className="mt-5" />
       <div className="mt-4">
         <AnalysisProvenanceHint kinds={["stt_derived", "deterministic"]} note="실제 녹음의 전사문을 정해진 자기소개 기준으로 점검했습니다. 실제 AI 평가나 합격 가능성 점수가 아닙니다." />
       </div>
+      <NonverbalSignalCard result={attempt.nonverbalSignal} locale={attempt.practiceLanguage} />
       <div className="mt-5">
         <TimingAnalysisCard analysis={a} />
       </div>

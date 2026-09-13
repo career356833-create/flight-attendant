@@ -5,6 +5,7 @@ export type AnalysisProvenanceKind =
   | 'deterministic'
   | 'audio_metrics'
   | 'stt_derived'
+  | 'vision_metrics'
   | 'mock'
   | 'unknown'
 
@@ -22,6 +23,7 @@ const presentation: Record<Locale, Record<AnalysisProvenanceKind, { label: strin
     deterministic: { label: '규칙 기반 분석', description: '답변에 나타난 구조와 표현 패턴을 정해진 기준으로 확인했습니다.' },
     audio_metrics: { label: '오디오 지표 기반', description: '기기에서 측정한 음량과 쉼 등 오디오 신호만 사용했습니다.' },
     stt_derived: { label: '실제 음성 전사 기반', description: '실제 녹음에서 전사된 답변을 바탕으로 분석했습니다.' },
+    vision_metrics: { label: '기기 내 영상 관찰 지표', description: '원본 영상을 저장하지 않고 기기에서 계산한 얼굴·움직임 신호 요약입니다.' },
     mock: { label: '기본 예시 분석', description: '실제 AI 서비스 결과가 아닙니다.' },
     unknown: { label: '분석 출처 확인 필요', description: '출처가 확인되지 않아 실제 AI 결과로 표시하지 않습니다.' },
   },
@@ -30,6 +32,7 @@ const presentation: Record<Locale, Record<AnalysisProvenanceKind, { label: strin
     deterministic: { label: 'Rule-based analysis', description: 'Fixed criteria were used to review answer structure and expression patterns.' },
     audio_metrics: { label: 'Audio metrics', description: 'Only on-device audio signals such as volume and pauses were used.' },
     stt_derived: { label: 'Actual speech transcript', description: 'The analysis uses a transcript produced from the recorded answer.' },
+    vision_metrics: { label: 'On-device visual metrics', description: 'A summary of face and movement signals computed on-device without storing the original video.' },
     mock: { label: 'Basic example analysis', description: 'This is not a result from an actual AI service.' },
     unknown: { label: 'Analysis source unavailable', description: 'The source is unknown, so this is not presented as an actual AI result.' },
   },
