@@ -17,6 +17,11 @@ import {
   airlineOfficialBatch1Routes,
   isAllowedOfficialAirlineSource,
 } from "@/lib/airline-official-data-batch-1";
+import {
+  airlineOfficialBatch2Fleet,
+  airlineOfficialBatch2Profiles,
+  airlineOfficialBatch2Routes,
+} from "@/lib/airline-official-data-batch-2";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -141,10 +146,11 @@ export function deriveOperationScope(routes: AirlineRoute[]): AirlineOperationSc
 
 export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): AirlineWorkspaceProfile[] {
   const profiles = airlineKnowledgeRepository.listProfiles();
+  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles];
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
-    const official = airlineOfficialBatch1Profiles.find((profile) => profile.airlineId === item.id);
+    const official = officialProfiles.find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
     const sources = official?.sources.filter((source) => isAllowedOfficialAirlineSource(source.sourceUrl)) ?? published?.resources.map(resourceFact) ?? [];
@@ -160,8 +166,8 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       countryNameKo: names[0],
       countryNameEn: names[1],
       region: item.region,
-      operationScope: deriveOperationScope(routes.filter((route) => route.airlineId === item.id && route.status === "CONFIRMED")),
-      carrierType: carrierType(canonical?.businessModel),
+      operationScope: official?.operationScope ?? deriveOperationScope(routes.filter((route) => route.airlineId === item.id && route.status === "CONFIRMED")),
+      carrierType: official?.carrierType ?? carrierType(canonical?.businessModel),
       headquarters: official?.headquarters ?? published?.overview.headquarters,
       hubs: official?.hubs ?? published?.overview.primaryHubs ?? [],
       website: official?.website ?? published?.overview.website,
@@ -177,12 +183,12 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes.filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)), ...localRoutes]
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 
 export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
-  return [...airlineOfficialBatch1Fleet.filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)), ...localFleet]
+  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
     .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 

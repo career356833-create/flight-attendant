@@ -42,11 +42,13 @@ function AirlineList({ profiles, preferences, onSelect, onPreferencesChange }: {
   const [search, setSearch] = useState("");
   const [countryGroup, setCountryGroup] = useState<AirlineCountryGroup>("ALL");
   const [scope, setScope] = useState<AirlineOperationScope | "ALL">("ALL");
-  const visible = useMemo(() => filterAirlines(profiles, { search, countryGroup, operationScope: scope }), [profiles, search, countryGroup, scope]);
+  const [carrier, setCarrier] = useState<AirlineCarrierType | "ALL">("ALL");
+  const visible = useMemo(() => filterAirlines(profiles, { search, countryGroup, operationScope: scope, carrierType: carrier }), [profiles, search, countryGroup, scope, carrier]);
   return <>
     <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"/><input value={search} onChange={(event) => setSearch(event.target.value)} aria-label="항공사 검색" placeholder="항공사명, 국가, IATA 검색" className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-3 text-sm"/></div>
     <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="국가·지역 필터">{countryFilters.map(([value, label]) => <button key={value} onClick={() => setCountryGroup(value)} aria-pressed={countryGroup === value} className={`min-h-10 shrink-0 rounded-full px-4 text-xs font-bold ${countryGroup === value ? "bg-navy text-ivory" : "border border-border bg-card text-muted-foreground"}`}>{label}</button>)}</div>
     <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="운항 범위 필터">{([["ALL", "전체 운항"], ["DOMESTIC", "국내선"], ["INTERNATIONAL", "국제선"], ["BOTH", "국내·국제"]] as const).map(([value, label]) => <button key={value} onClick={() => setScope(value)} aria-pressed={scope === value} className={`min-h-10 shrink-0 rounded-full px-4 text-xs font-bold ${scope === value ? "bg-gold text-navy" : "border border-border bg-card text-muted-foreground"}`}>{label}</button>)}</div>
+    <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="항공사 유형 필터">{([["ALL", "전체 유형"], ["LOW_COST", "저비용 항공사"], ["FULL_SERVICE", "대형 항공사"], ["HYBRID", "하이브리드"], ["REGIONAL", "지역 항공사"]] as const).map(([value, label]) => <button key={value} onClick={() => setCarrier(value)} aria-pressed={carrier === value} className={`min-h-10 shrink-0 rounded-full px-4 text-xs font-bold ${carrier === value ? "bg-navy text-ivory" : "border border-border bg-card text-muted-foreground"}`}>{label}</button>)}</div>
     <p className="mt-4 text-xs text-muted-foreground">검색 결과 {visible.length}개 · 운항 범위는 확인된 노선 자료가 있을 때만 표시됩니다.</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{visible.map((profile) => {
       const primary = preferences.primary?.id === profile.id;

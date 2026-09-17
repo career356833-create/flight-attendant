@@ -1,4 +1,4 @@
-import type { AirlineFact, AirlineFleetEntry, AirlineRoute } from "@/lib/airline-targeting-workspace";
+import type { AirlineCarrierType, AirlineFact, AirlineFleetEntry, AirlineOperationScope, AirlineRoute } from "@/lib/airline-targeting-workspace";
 
 const verifiedAt = "2026-09-14T00:00:00.000Z";
 const allowedHosts = new Set([
@@ -6,6 +6,16 @@ const allowedHosts = new Set([
   "koreanair.recruiter.co.kr",
   "kr.img.news.koreanair.com",
   "flyasiana.com",
+  "www.jejuair.net",
+  "static.jejuair.net",
+  "www.jinair.com",
+  "agent.jinair.com",
+  "files.jinair.com",
+  "www.twayair.com",
+  "www.trinityairways.com",
+  "trinityairways.recruiter.co.kr",
+  "www.airbusan.com",
+  "en.airbusan.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {
@@ -87,12 +97,14 @@ const asianaRoutes = fact(
 );
 
 export type OfficialAirlineBatchProfile = {
-  airlineId: "korean_air" | "asiana_airlines";
-  headquarters: string;
+  airlineId: string;
+  headquarters?: string;
   hubs: string[];
-  website: string;
-  careersUrl: string;
-  summary: string;
+  website?: string;
+  careersUrl?: string;
+  summary?: string;
+  operationScope?: AirlineOperationScope;
+  carrierType?: AirlineCarrierType;
   verified: true;
   published: true;
   aiContextEnabled: false;
