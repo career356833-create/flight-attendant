@@ -39,6 +39,7 @@ export const airlines: Airline[] = [
   airline('jin_air', 'Jin Air', 'KR', 'asia_pacific', 'low_cost', ['진에어', 'JinAir'], ['Korean', 'English']),
   airline('air_busan', 'Air Busan', 'KR', 'asia_pacific', 'regional', ['에어부산'], ['Korean', 'English']),
   airline('air_seoul', 'Air Seoul', 'KR', 'asia_pacific', 'regional', ['에어서울'], ['Korean', 'English']),
+  airline('eastar_jet', 'Eastar Jet', 'KR', 'asia_pacific', 'low_cost', ['이스타항공', 'Eastar'], ['Korean', 'English']),
   airline('emirates', 'Emirates', 'AE', 'middle_east', 'full_service', ['EK'], ['English']),
   airline('qatar_airways', 'Qatar Airways', 'QA', 'middle_east', 'full_service', ['Qatar', 'QR'], ['English', 'Arabic']),
   airline('etihad_airways', 'Etihad Airways', 'AE', 'middle_east', 'full_service', ['Etihad', 'EY'], ['English', 'Arabic']),

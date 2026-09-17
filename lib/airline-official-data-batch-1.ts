@@ -16,6 +16,11 @@ const allowedHosts = new Set([
   "trinityairways.recruiter.co.kr",
   "www.airbusan.com",
   "en.airbusan.com",
+  "flyairseoul.com",
+  "recruit.flyairseoul.com",
+  "main.eastarjet.com",
+  "www.eastarjet.com",
+  "recruit.eastarjet.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {

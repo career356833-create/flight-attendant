@@ -22,6 +22,11 @@ import {
   airlineOfficialBatch2Profiles,
   airlineOfficialBatch2Routes,
 } from "@/lib/airline-official-data-batch-2";
+import {
+  airlineOfficialBatch3AFleet,
+  airlineOfficialBatch3AProfiles,
+  airlineOfficialBatch3ARoutes,
+} from "@/lib/airline-official-data-batch-3a";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -146,7 +151,7 @@ export function deriveOperationScope(routes: AirlineRoute[]): AirlineOperationSc
 
 export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): AirlineWorkspaceProfile[] {
   const profiles = airlineKnowledgeRepository.listProfiles();
-  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles];
+  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles];
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
@@ -183,12 +188,12 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 
 export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
-  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
+  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
     .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 
