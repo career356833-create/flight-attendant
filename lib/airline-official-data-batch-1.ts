@@ -21,6 +21,13 @@ const allowedHosts = new Set([
   "main.eastarjet.com",
   "www.eastarjet.com",
   "recruit.eastarjet.com",
+  "www.emirates.com",
+  "www.emiratesgroupcareers.com",
+  "www.qatarairways.com",
+  "careers.qatarairways.com",
+  "dmassets.qatarairways.com",
+  "www.etihad.com",
+  "careers.etihad.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {
