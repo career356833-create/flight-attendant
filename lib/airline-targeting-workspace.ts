@@ -28,12 +28,6 @@ import {
   airlineOfficialBatch3ARoutes,
 } from "@/lib/airline-official-data-batch-3a";
 import {
-  airlineOfficialBatch3BFleet,
-  airlineOfficialBatch3BGuidance,
-  airlineOfficialBatch3BProfiles,
-  airlineOfficialBatch3BRecruitmentSteps,
-  airlineOfficialBatch3BRequirements,
-  airlineOfficialBatch3BRoutes,
   type AirlineRecruitmentGuidance,
   type AirlineRecruitmentStep,
   type CabinCrewRequirement,
@@ -46,6 +40,14 @@ import {
   airlineOfficialBatch4Requirements,
   airlineOfficialBatch4Routes,
 } from "@/lib/airline-official-data-batch-4";
+import {
+  airlineOfficialBatch5Fleet,
+  airlineOfficialBatch5Guidance,
+  airlineOfficialBatch5Profiles,
+  airlineOfficialBatch5RecruitmentSteps,
+  airlineOfficialBatch5Requirements,
+  airlineOfficialBatch5Routes,
+} from "@/lib/airline-official-data-batch-5";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -149,7 +151,7 @@ const VERSION = 1;
 const now = () => new Date().toISOString();
 const emptyStore = (): WorkspaceStore => ({ schemaVersion: VERSION, questions: [], routes: [], fleet: [], updatedAt: now() });
 const carrierType = (model?: AirlineBusinessModel): AirlineCarrierType => model === "full_service" ? "FULL_SERVICE" : model === "low_cost" ? "LOW_COST" : model === "hybrid" ? "HYBRID" : model === "regional" ? "REGIONAL" : "OTHER";
-const countryNames: Record<string, [string, string]> = { KR: ["대한민국", "South Korea"], JP: ["일본", "Japan"], CN: ["중국", "China"], HK: ["홍콩", "Hong Kong"], TW: ["대만", "Taiwan"], SG: ["싱가포르", "Singapore"], AE: ["아랍에미리트", "United Arab Emirates"], QA: ["카타르", "Qatar"], US: ["미국", "United States"], CA: ["캐나다", "Canada"] };
+const countryNames: Record<string, [string, string]> = { KR: ["대한민국", "South Korea"], JP: ["일본", "Japan"], CN: ["중국", "China"], HK: ["홍콩", "Hong Kong"], TW: ["대만", "Taiwan"], SG: ["싱가포르", "Singapore"], AE: ["아랍에미리트", "United Arab Emirates"], QA: ["카타르", "Qatar"], TR: ["튀르키예", "Türkiye"], US: ["미국", "United States"], CA: ["캐나다", "Canada"] };
 const southeastAsia = new Set(["BN", "KH", "ID", "LA", "MY", "MM", "PH", "SG", "TH", "TL", "VN"]);
 
 function resourceFact(resource: AirlineResource): AirlineFact {
@@ -175,12 +177,12 @@ export function deriveOperationScope(routes: AirlineRoute[]): AirlineOperationSc
 
 export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): AirlineWorkspaceProfile[] {
   const profiles = airlineKnowledgeRepository.listProfiles();
-  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch3BProfiles, ...airlineOfficialBatch4Profiles];
+  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles];
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
     const official = officialProfiles.find((profile) => profile.airlineId === item.id);
-    const officialRecruitmentProfile = [...airlineOfficialBatch3BProfiles, ...airlineOfficialBatch4Profiles].find((profile) => profile.airlineId === item.id);
+    const officialRecruitmentProfile = [...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles].find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
     const sources = official?.sources.filter((source) => isAllowedOfficialAirlineSource(source.sourceUrl)) ?? published?.resources.map(resourceFact) ?? [];
@@ -203,9 +205,9 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       website: official?.website ?? published?.overview.website,
       careersUrl: official?.careersUrl ?? published?.recruitmentProfile.officialCareerPageUrl,
       cabinCrewCareersUrl: officialRecruitmentProfile?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
-      cabinCrewRequirements: [...airlineOfficialBatch3BRequirements, ...airlineOfficialBatch4Requirements].filter((requirement) => requirement.airlineId === item.id),
-      recruitmentProcess: [...airlineOfficialBatch3BRecruitmentSteps, ...airlineOfficialBatch4RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
-      recruitmentGuidance: [...airlineOfficialBatch3BGuidance, ...airlineOfficialBatch4Guidance].filter((guidance) => guidance.airlineId === item.id),
+      cabinCrewRequirements: [...airlineOfficialBatch4Requirements, ...airlineOfficialBatch5Requirements].filter((requirement) => requirement.airlineId === item.id),
+      recruitmentProcess: [...airlineOfficialBatch4RecruitmentSteps, ...airlineOfficialBatch5RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
+      recruitmentGuidance: [...airlineOfficialBatch4Guidance, ...airlineOfficialBatch5Guidance].filter((guidance) => guidance.airlineId === item.id),
       summary: official?.summary ?? published?.overview.brandSummary,
       verified: official?.verified ?? raw?.reviewStatus === "verified",
       published: official?.published ?? raw?.publishStatus === "published",
@@ -217,12 +219,12 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch3BRoutes, ...airlineOfficialBatch4Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch4Routes, ...airlineOfficialBatch5Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 
 export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
-  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch3BFleet, ...airlineOfficialBatch4Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
+  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch4Fleet, ...airlineOfficialBatch5Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
     .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 

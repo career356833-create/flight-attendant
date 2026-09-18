@@ -28,6 +28,8 @@ const allowedHosts = new Set([
   "dmassets.qatarairways.com",
   "www.etihad.com",
   "careers.etihad.com",
+  "www.turkishairlines.com",
+  "careers.turkishairlines.com",
   "www.singaporeair.com",
   "careers.singaporeair.com",
   "www.cathaypacific.com",
