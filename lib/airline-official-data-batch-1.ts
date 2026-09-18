@@ -38,6 +38,17 @@ const allowedHosts = new Set([
   "flights.cathaypacific.com",
   "www.ana.co.jp",
   "www.jal.com",
+  "www.lufthansagroup.careers",
+  "www.lufthansa.com",
+  "careers.ba.com",
+  "www.britishairways.com",
+  "corporate.airfrance.com",
+  "recrutement.airfrance.com",
+  "wwws.airfrance.co.kr",
+  "careers.klm.com",
+  "www.klm.com",
+  "www.klm.co.kr",
+  "news.klm.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {
