@@ -185,7 +185,7 @@ export type CabinCrewRequirementType =
 
 export type CabinCrewRequirement = {
   id: string;
-  airlineId: "emirates" | "qatar_airways" | "etihad_airways";
+  airlineId: string;
   requirementType: CabinCrewRequirementType;
   text: string;
   source: AirlineFact;
@@ -234,7 +234,7 @@ export const airlineOfficialBatch3BRequirements: CabinCrewRequirement[] = [
 
 export type AirlineRecruitmentStep = {
   id: string;
-  airlineId: CabinCrewRequirement["airlineId"];
+  airlineId: string;
   order: number;
   title: string;
   description: string;
@@ -263,7 +263,7 @@ export const airlineOfficialBatch3BRecruitmentSteps: AirlineRecruitmentStep[] = 
 
 export type AirlineRecruitmentGuidance = {
   id: string;
-  airlineId: CabinCrewRequirement["airlineId"];
+  airlineId: string;
   topic: "application" | "assessment" | "training" | "accommodation" | "benefits";
   text: string;
   source: AirlineFact;

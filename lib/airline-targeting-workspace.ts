@@ -38,6 +38,14 @@ import {
   type AirlineRecruitmentStep,
   type CabinCrewRequirement,
 } from "@/lib/airline-official-data-batch-3b";
+import {
+  airlineOfficialBatch4Fleet,
+  airlineOfficialBatch4Guidance,
+  airlineOfficialBatch4Profiles,
+  airlineOfficialBatch4RecruitmentSteps,
+  airlineOfficialBatch4Requirements,
+  airlineOfficialBatch4Routes,
+} from "@/lib/airline-official-data-batch-4";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -167,12 +175,12 @@ export function deriveOperationScope(routes: AirlineRoute[]): AirlineOperationSc
 
 export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): AirlineWorkspaceProfile[] {
   const profiles = airlineKnowledgeRepository.listProfiles();
-  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch3BProfiles];
+  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch3BProfiles, ...airlineOfficialBatch4Profiles];
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
     const official = officialProfiles.find((profile) => profile.airlineId === item.id);
-    const batch3B = airlineOfficialBatch3BProfiles.find((profile) => profile.airlineId === item.id);
+    const officialRecruitmentProfile = [...airlineOfficialBatch3BProfiles, ...airlineOfficialBatch4Profiles].find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
     const sources = official?.sources.filter((source) => isAllowedOfficialAirlineSource(source.sourceUrl)) ?? published?.resources.map(resourceFact) ?? [];
@@ -194,10 +202,10 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       hubs: official?.hubs ?? published?.overview.primaryHubs ?? [],
       website: official?.website ?? published?.overview.website,
       careersUrl: official?.careersUrl ?? published?.recruitmentProfile.officialCareerPageUrl,
-      cabinCrewCareersUrl: batch3B?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
-      cabinCrewRequirements: airlineOfficialBatch3BRequirements.filter((requirement) => requirement.airlineId === item.id),
-      recruitmentProcess: airlineOfficialBatch3BRecruitmentSteps.filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
-      recruitmentGuidance: airlineOfficialBatch3BGuidance.filter((guidance) => guidance.airlineId === item.id),
+      cabinCrewCareersUrl: officialRecruitmentProfile?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
+      cabinCrewRequirements: [...airlineOfficialBatch3BRequirements, ...airlineOfficialBatch4Requirements].filter((requirement) => requirement.airlineId === item.id),
+      recruitmentProcess: [...airlineOfficialBatch3BRecruitmentSteps, ...airlineOfficialBatch4RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
+      recruitmentGuidance: [...airlineOfficialBatch3BGuidance, ...airlineOfficialBatch4Guidance].filter((guidance) => guidance.airlineId === item.id),
       summary: official?.summary ?? published?.overview.brandSummary,
       verified: official?.verified ?? raw?.reviewStatus === "verified",
       published: official?.published ?? raw?.publishStatus === "published",
@@ -209,19 +217,19 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch3BRoutes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch3BRoutes, ...airlineOfficialBatch4Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 
 export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
-  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch3BFleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
+  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch3BFleet, ...airlineOfficialBatch4Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
     .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 
 export function filterAirlines(profiles: AirlineWorkspaceProfile[], filters: { search?: string; countryGroup?: AirlineCountryGroup; countryCode?: string; operationScope?: AirlineOperationScope | "ALL"; carrierType?: AirlineCarrierType | "ALL" }) {
   const query = (filters.search ?? "").trim().toLocaleLowerCase();
   return profiles.filter((profile) => {
-    const searchable = [profile.nameKo, profile.nameEn, profile.countryNameKo, profile.countryNameEn, profile.countryCode, profile.iataCode, profile.slug].filter(Boolean).join(" ").toLocaleLowerCase();
+    const searchable = [profile.nameKo, profile.nameEn, profile.countryNameKo, profile.countryNameEn, profile.countryCode, profile.iataCode, profile.slug, ...((airlineById.get(profile.id)?.aliases) ?? [])].filter(Boolean).join(" ").toLocaleLowerCase();
     const countryOk = !filters.countryGroup || filters.countryGroup === "ALL" || countryGroupFor(profile) === filters.countryGroup;
     const countryCodeOk = !filters.countryCode || profile.countryCode === filters.countryCode;
     const scopeOk = !filters.operationScope || filters.operationScope === "ALL" || profile.operationScope === filters.operationScope || profile.operationScope === "BOTH" && ["DOMESTIC", "INTERNATIONAL"].includes(filters.operationScope);

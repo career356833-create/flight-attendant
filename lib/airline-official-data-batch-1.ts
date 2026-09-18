@@ -28,6 +28,14 @@ const allowedHosts = new Set([
   "dmassets.qatarairways.com",
   "www.etihad.com",
   "careers.etihad.com",
+  "www.singaporeair.com",
+  "careers.singaporeair.com",
+  "www.cathaypacific.com",
+  "careers.cathaypacific.com",
+  "jobsatcathaypacific.com",
+  "flights.cathaypacific.com",
+  "www.ana.co.jp",
+  "www.jal.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {
