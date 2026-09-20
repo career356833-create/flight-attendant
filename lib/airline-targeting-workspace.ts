@@ -88,6 +88,11 @@ import {
   type AirlineQuestionLocale,
   type AirlineQuestionProvenance,
 } from "@/lib/airline-question-provenance";
+import {
+  createUserReportedQuestion,
+  type QuestionInterviewStage,
+  type QuestionModerationStatus,
+} from "@/lib/airline-question-community-evidence";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -137,7 +142,7 @@ export type AirlineApplicationQuestionSource = "OFFICIAL_POSTING" | "USER_ENTERE
 export type AirlineInterviewQuestionSource = "OFFICIAL_INTERVIEW" | "USER_REPORTED" | "VERIFIED_ARCHIVE" | "UNKNOWN";
 export type AirlineQuestionCategory = "MOTIVATION" | "COMPANY_FIT" | "SERVICE" | "SAFETY" | "TEAMWORK" | "CONFLICT" | "CUSTOMER_COMPLAINT" | "GLOBAL_MINDSET" | "STRENGTH_WEAKNESS" | "SELF_INTRODUCTION" | "EXPERIENCE" | "SITUATIONAL" | "OTHER";
 
-type AirlineQuestionBase = {
+export type AirlineQuestionBase = {
   id: string;
   airlineId: string;
   questionText: string;
@@ -155,6 +160,14 @@ type AirlineQuestionBase = {
   verifiedAt?: string;
   verified: boolean;
   createdAt: string;
+  moderationStatus?: QuestionModerationStatus;
+  reporterOwned?: boolean;
+  reporterKey?: string;
+  selfAttested?: boolean;
+  interviewStage?: QuestionInterviewStage;
+  publisher?: string;
+  publishedAt?: string;
+  linkedOfficialQuestionId?: string;
 };
 
 export type AirlineApplicationQuestion = AirlineQuestionBase & { kind: "APPLICATION"; sourceType: AirlineApplicationQuestionSource };
@@ -373,10 +386,27 @@ export const airlineTargetingRepository = {
     if (result.ok && typeof window !== "undefined") window.dispatchEvent(new Event(this.eventName));
     return result;
   },
-  addUserQuestion(input: { kind: WorkspaceQuestion["kind"]; airlineId: string; questionText: string; year?: number; recruitmentPeriod?: string; position?: string; category?: AirlineQuestionCategory }) {
-    const base = { id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `airline-question-${Date.now()}`, airlineId: input.airlineId, questionText: input.questionText.trim(), year: input.year, recruitmentPeriod: input.recruitmentPeriod?.trim() || undefined, position: input.position?.trim() || "객실승무원", category: input.category ?? classifyAirlineQuestion(input.questionText), provenance: "USER_REPORTED" as const, locale: "ko" as const, archived: false, verified: false, createdAt: now() };
-    const question: WorkspaceQuestion = input.kind === "APPLICATION" ? { ...base, kind: "APPLICATION", sourceType: "USER_ENTERED" } : { ...base, kind: "INTERVIEW", sourceType: "USER_REPORTED" };
+  addUserQuestion(input: { kind: WorkspaceQuestion["kind"]; airlineId: string; questionText: string; locale?: AirlineQuestionLocale; year?: number; recruitmentPeriod?: string; position?: string; interviewStage?: QuestionInterviewStage; selfAttested?: boolean; category?: AirlineQuestionCategory }) {
     const store = readStore();
+    const created = createUserReportedQuestion({
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `airline-question-${Date.now()}`,
+      airlineId: input.airlineId,
+      kind: input.kind,
+      questionText: input.questionText,
+      locale: input.locale ?? "ko",
+      reporterKey: "local-owner",
+      // Legacy internal callers predate the UI attestation field; the public form always sends it explicitly.
+      selfAttested: input.selfAttested !== false,
+      createdAt: now(),
+      year: input.year,
+      recruitmentPeriod: input.recruitmentPeriod,
+      position: input.position,
+      interviewStage: input.interviewStage,
+      category: input.category ?? classifyAirlineQuestion(input.questionText),
+    }, store.questions);
+    if (!created.ok) return created;
+    const base = created.question;
+    const question: WorkspaceQuestion = input.kind === "APPLICATION" ? { ...base, category: base.category as AirlineQuestionCategory, position: base.position ?? "객실승무원", kind: "APPLICATION", sourceType: "USER_ENTERED" } : { ...base, category: base.category as AirlineQuestionCategory, position: base.position ?? "객실승무원", kind: "INTERVIEW", sourceType: "USER_REPORTED" };
     const result = this.save({ ...store, questions: [question, ...store.questions.filter((item) => item.id !== question.id)] });
     return result.ok ? { ok: true as const, question } : result;
   },
