@@ -67,10 +67,11 @@ test("Batch 2 does not infer hubs from departure cities", () => {
   assert.ok(airlineOfficialBatch2Profiles.every((profile) => profile.hubs.length === 0));
 });
 
-test("Jeju Air and Air Busan fleet are source-backed, while Jin Air has no invented fleet entry", () => {
+test("Batch 2 keeps Jin Air empty while the integrated workspace accepts the later official partial fleet", () => {
   assert.equal(fleet.filter((entry) => entry.airlineId === "jeju_air").length, 2);
   assert.equal(fleet.filter((entry) => entry.airlineId === "air_busan").length, 4);
-  assert.equal(fleet.filter((entry) => entry.airlineId === "jin_air").length, 0);
+  assert.equal(airlineOfficialBatch2Fleet.filter((entry) => entry.airlineId === "jin_air").length, 0);
+  assert.equal(fleet.filter((entry) => entry.airlineId === "jin_air").length, 1);
 });
 
 test("T'way legacy records are clearly source-backed and retain no inferred quantity", () => {
