@@ -81,6 +81,13 @@ import {
   airlineOfficialBatch9Requirements,
   applyAirlineOfficialBatch9Patch,
 } from "@/lib/airline-official-data-batch-9";
+import {
+  dedupeAirlineQuestions,
+  officialPatternQuestions,
+  questionProvenance,
+  type AirlineQuestionLocale,
+  type AirlineQuestionProvenance,
+} from "@/lib/airline-question-provenance";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -140,6 +147,12 @@ type AirlineQuestionBase = {
   category: AirlineQuestionCategory;
   sourceUrl?: string;
   sourceTitle?: string;
+  provenance?: AirlineQuestionProvenance;
+  locale?: AirlineQuestionLocale;
+  rawSourceText?: string;
+  translatedText?: string;
+  archived?: boolean;
+  verifiedAt?: string;
   verified: boolean;
   createdAt: string;
 };
@@ -307,28 +320,28 @@ export function patternConfidence(sampleCount: number): AirlineQuestionPattern["
 }
 
 export function calculateQuestionPatterns(questions: WorkspaceQuestion[]): AirlineQuestionPattern[] {
+  const officialQuestions = officialPatternQuestions(questions);
   const counts = new Map<AirlineQuestionCategory, number>();
-  questions.forEach((question) => counts.set(question.category, (counts.get(question.category) ?? 0) + 1));
-  const confidence = patternConfidence(questions.length);
+  officialQuestions.forEach((question) => counts.set(question.category, (counts.get(question.category) ?? 0) + 1));
+  const confidence = patternConfidence(officialQuestions.length);
   return [...counts].map(([category, count]) => ({ category, count, confidence })).sort((a, b) => b.count - a.count || a.category.localeCompare(b.category));
 }
 
-export function filterQuestions(questions: WorkspaceQuestion[], filters: { kind?: WorkspaceQuestion["kind"] | "ALL"; year?: number; category?: AirlineQuestionCategory | "ALL"; position?: string; sourceType?: string | "ALL"; search?: string }) {
+export function filterQuestions(questions: WorkspaceQuestion[], filters: { kind?: WorkspaceQuestion["kind"] | "ALL"; year?: number; category?: AirlineQuestionCategory | "ALL"; position?: string; sourceType?: string | "ALL"; provenance?: AirlineQuestionProvenance | "ALL"; search?: string }) {
   const search = (filters.search ?? "").trim().toLocaleLowerCase();
-  return questions.filter((question) => (!filters.kind || filters.kind === "ALL" || question.kind === filters.kind) && (!filters.year || question.year === filters.year) && (!filters.category || filters.category === "ALL" || question.category === filters.category) && (!filters.position || question.position === filters.position) && (!filters.sourceType || filters.sourceType === "ALL" || question.sourceType === filters.sourceType) && (!search || question.questionText.toLocaleLowerCase().includes(search)));
+  return questions.filter((question) => (!filters.kind || filters.kind === "ALL" || question.kind === filters.kind) && (!filters.year || question.year === filters.year) && (!filters.category || filters.category === "ALL" || question.category === filters.category) && (!filters.position || question.position === filters.position) && (!filters.sourceType || filters.sourceType === "ALL" || question.sourceType === filters.sourceType) && (!filters.provenance || filters.provenance === "ALL" || questionProvenance(question) === filters.provenance) && (!search || question.questionText.toLocaleLowerCase().includes(search)));
 }
 
 export function getSourceBackedWorkspaceQuestions(airlineId: string): WorkspaceQuestion[] {
   const published = getPublishedAirlineKnowledge(airlineId);
   const publishedQuestions = published?.questions.flatMap((item): WorkspaceQuestion[] => {
-    const base = { id: `knowledge-${item.id}`, airlineId, questionText: item.prompt, position: "객실승무원", category: classifyAirlineQuestion(item.prompt), sourceUrl: published.resources.find((resource) => item.sourceIds.includes(resource.id))?.url, sourceTitle: published.resources.find((resource) => item.sourceIds.includes(resource.id))?.title, verified: true, createdAt: item.createdAt };
-    if (item.sourceType === "official_application") return [{ ...base, id: `airline-${item.id}`, kind: "APPLICATION", sourceType: "OFFICIAL_POSTING" }];
-    if (["official_interview", "official_video_interview", "official_event"].includes(item.sourceType)) return [{ ...base, kind: "INTERVIEW", sourceType: "OFFICIAL_INTERVIEW" }];
-    if (["repeated_candidate_report", "single_candidate_report"].includes(item.sourceType)) return [{ ...base, kind: "INTERVIEW", sourceType: "VERIFIED_ARCHIVE" }];
+    const base = { id: `knowledge-${item.id}`, airlineId, questionText: item.prompt, position: "객실승무원", category: classifyAirlineQuestion(item.prompt), sourceUrl: published.resources.find((resource) => item.sourceIds.includes(resource.id))?.url, sourceTitle: published.resources.find((resource) => item.sourceIds.includes(resource.id))?.title, verified: true, verifiedAt: item.createdAt, createdAt: item.createdAt };
+    if (item.sourceType === "official_application") return [{ ...base, id: `airline-${item.id}`, kind: "APPLICATION", sourceType: "OFFICIAL_POSTING", provenance: "OFFICIAL_CURRENT" }];
+    if (["official_interview", "official_video_interview", "official_event"].includes(item.sourceType)) return [{ ...base, kind: "INTERVIEW", sourceType: "OFFICIAL_INTERVIEW", provenance: "OFFICIAL_CURRENT" }];
+    if (["repeated_candidate_report", "single_candidate_report"].includes(item.sourceType)) return [{ ...base, kind: "INTERVIEW", sourceType: "VERIFIED_ARCHIVE", provenance: "VERIFIED_SECONDARY" }];
     return [];
   }) ?? [];
-  return [...airlineOfficialBatch9InterviewQuestions.filter((question) => question.airlineId === airlineId), ...publishedQuestions]
-    .filter((question, index, all) => all.findIndex((candidate) => candidate.id === question.id) === index);
+  return dedupeAirlineQuestions([...airlineOfficialBatch9InterviewQuestions.filter((question) => question.airlineId === airlineId), ...publishedQuestions]);
 }
 
 export function normalizeTargetPreferences(primary: AirlineSelection | null, interests: AirlineSelection[], selected: AirlineSelection, mode: "primary" | "interest"): AirlineTargetPreferences {
@@ -361,7 +374,7 @@ export const airlineTargetingRepository = {
     return result;
   },
   addUserQuestion(input: { kind: WorkspaceQuestion["kind"]; airlineId: string; questionText: string; year?: number; recruitmentPeriod?: string; position?: string; category?: AirlineQuestionCategory }) {
-    const base = { id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `airline-question-${Date.now()}`, airlineId: input.airlineId, questionText: input.questionText.trim(), year: input.year, recruitmentPeriod: input.recruitmentPeriod?.trim() || undefined, position: input.position?.trim() || "객실승무원", category: input.category ?? classifyAirlineQuestion(input.questionText), verified: false, createdAt: now() };
+    const base = { id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `airline-question-${Date.now()}`, airlineId: input.airlineId, questionText: input.questionText.trim(), year: input.year, recruitmentPeriod: input.recruitmentPeriod?.trim() || undefined, position: input.position?.trim() || "객실승무원", category: input.category ?? classifyAirlineQuestion(input.questionText), provenance: "USER_REPORTED" as const, locale: "ko" as const, archived: false, verified: false, createdAt: now() };
     const question: WorkspaceQuestion = input.kind === "APPLICATION" ? { ...base, kind: "APPLICATION", sourceType: "USER_ENTERED" } : { ...base, kind: "INTERVIEW", sourceType: "USER_REPORTED" };
     const store = readStore();
     const result = this.save({ ...store, questions: [question, ...store.questions.filter((item) => item.id !== question.id)] });
@@ -374,7 +387,7 @@ export function isAirlineEligibleForAi(profile: AirlineWorkspaceProfile) {
 }
 
 export function buildPracticeLineage(airlineId: string, question: WorkspaceQuestion) {
-  return { source: "airline_workspace" as const, airlineId, workspaceQuestionId: question.id, questionKind: question.kind };
+  return { source: "airline_workspace" as const, airlineId, workspaceQuestionId: question.id, questionKind: question.kind, questionSourceType: question.sourceType, questionProvenance: questionProvenance(question) };
 }
 
 export function buildPreparationStatus(input: { airlineId: string; questions: WorkspaceQuestion[]; answers: ApplicationAnswer[]; attempts: InterviewAttempt[]; experiences: CareerExperience[] }) {

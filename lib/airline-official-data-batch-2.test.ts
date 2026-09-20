@@ -146,5 +146,5 @@ test("existing answer and practice lineage remains available only for an actual 
     verified: false,
     createdAt: "2026-09-17T00:00:00.000Z",
   });
-  assert.deepEqual(lineage, { source: "airline_workspace", airlineId: "jeju_air", workspaceQuestionId: "user-question", questionKind: "INTERVIEW" });
+  assert.deepEqual(lineage, { source: "airline_workspace", airlineId: "jeju_air", workspaceQuestionId: "user-question", questionKind: "INTERVIEW", questionSourceType: "USER_REPORTED", questionProvenance: "USER_REPORTED" });
 });
