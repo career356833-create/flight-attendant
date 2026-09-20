@@ -31,6 +31,7 @@ import {
   generateApplicationDraftWithPublishedKnowledge,
   getApplicationAirlineContext,
   getApplicationAnswer,
+  getWorkDraft,
   getVerifiedAirlineContext,
   listApplicationAnswers,
   listAnswerVersions,
@@ -51,6 +52,11 @@ import {
   type DraftEvidence,
   type StructureBlock,
 } from "@/lib/application-answer-repository";
+import {
+  airlineJourneyDraftId,
+  applicationPromptFromJourneyContext,
+  type AirlineJourneyContext,
+} from "@/lib/airline-journey-context";
 import { cn } from "@/lib/utils";
 import {
   selectApplicationInterviewDrills,
@@ -1154,6 +1160,7 @@ export function ApplicationAnswerDetail({
   onConvert,
   onPractice,
   onWeeklyReturn,
+  onJourneyReturn,
 }: {
   answer: ApplicationAnswer;
   onBack: () => void;
@@ -1161,6 +1168,7 @@ export function ApplicationAnswerDetail({
   onConvert: () => void;
   onPractice: (candidate: ApplicationInterviewDrillCandidate) => void;
   onWeeklyReturn?: () => void;
+  onJourneyReturn?: () => void;
 }) {
   const version = listAnswerVersions(answer.id).find(
     (v) => v.id === answer.currentVersionId,
@@ -1185,6 +1193,7 @@ export function ApplicationAnswerDetail({
       "범용";
   return (
     <Screen title={answer.title} onBack={onBack}>
+      {onJourneyReturn && <button type="button" onClick={onJourneyReturn} className="mb-4 min-h-11 w-full rounded-xl border border-navy text-sm font-bold text-navy">타겟 항공사 준비로 돌아가기</button>}
       {onWeeklyReturn && <div className="mb-4"><WeeklyReturnAction onReturn={onWeeklyReturn} /></div>}
       <div className={card}>
         <span className="text-xs font-semibold text-gold">
@@ -1267,36 +1276,40 @@ export function ApplicationCoach({
   initialAirlineId,
   weeklyReturnAnswerId,
   onWeeklyReturn,
+  initialJourneyContext,
 }: {
   onExit: () => void;
-  onOpenExperience: () => void;
+  onOpenExperience: (context?: AirlineJourneyContext) => void;
   onPractice: (
     candidate: ApplicationInterviewDrillCandidate,
   ) => void;
   initialAirlineId?: string;
   weeklyReturnAnswerId?: string;
   onWeeklyReturn?: () => void;
+  initialJourneyContext?: AirlineJourneyContext;
 }) {
-  const [step, setStep] = useState<Step>("home"),
+  const journeyDraft = initialJourneyContext ? getWorkDraft(airlineJourneyDraftId(initialJourneyContext)) : undefined;
+  const journeyPrompt = journeyDraft?.prompt ?? applicationPromptFromJourneyContext(initialJourneyContext);
+  const [step, setStep] = useState<Step>(journeyPrompt ? "experience" : "home"),
     [saved, setSaved] = useState<ApplicationAnswer[]>([]),
     [airlineId, setAirlineId] = useState<string | undefined>(initialAirlineId),
-    [documentType, setDocumentType] = useState<ApplicationDocumentType>(),
-    [prompt, setPrompt] = useState<ApplicationPrompt>(),
-    [selectedExperienceIds, setSelectedExperienceIds] = useState<string[]>([]),
+    [documentType, setDocumentType] = useState<ApplicationDocumentType | undefined>(journeyDraft?.documentType ?? journeyPrompt?.documentType),
+    [prompt, setPrompt] = useState<ApplicationPrompt | undefined>(journeyPrompt),
+    [selectedExperienceIds, setSelectedExperienceIds] = useState<string[]>(journeyDraft?.selectedExperienceIds ?? []),
     [coachingAnswers, setCoachingAnswers] = useState<Record<string, string>>(
-      {},
+      journeyDraft?.coachingAnswers ?? {},
     ),
-    [blocks, setBlocks] = useState<StructureBlock[]>([]),
-    [coreMessage, setCoreMessage] = useState(""),
+    [blocks, setBlocks] = useState<StructureBlock[]>(journeyDraft?.structure ?? []),
+    [coreMessage, setCoreMessage] = useState(journeyDraft?.coreMessage ?? ""),
     [draft, setDraft] = useState<ApplicationDraft>(),
     [analysis, setAnalysis] = useState<ApplicationAnswerAnalysis>(),
     [current, setCurrent] = useState<ApplicationAnswer>();
   const experiences = experienceRepository.load().experiences;
   useEffect(() => setSaved(listApplicationAnswers()), []);
   useEffect(() => {
-    if (step === "coaching" && prompt)
+    if ((step === "experience" || step === "coaching") && prompt)
       saveWorkDraft({
-        id: "active",
+        id: prompt.journeyContext ? airlineJourneyDraftId(prompt.journeyContext) : "active",
         airlineId,
         documentType,
         prompt,
@@ -1304,6 +1317,7 @@ export function ApplicationCoach({
         coachingAnswers,
         structure: blocks,
         coreMessage,
+        journeyContext: prompt.journeyContext,
         updatedAt: new Date().toISOString(),
       });
   }, [
@@ -1327,6 +1341,10 @@ export function ApplicationCoach({
     setDraft(undefined);
     setAnalysis(undefined);
     setStep("airline");
+  }
+  function openExperienceLibrary() {
+    if (prompt) saveWorkDraft({ id: prompt.journeyContext ? airlineJourneyDraftId(prompt.journeyContext) : "active", airlineId, documentType, prompt, selectedExperienceIds, coachingAnswers, structure: blocks, coreMessage, journeyContext: prompt.journeyContext, updatedAt: new Date().toISOString() });
+    onOpenExperience(prompt?.journeyContext ?? initialJourneyContext);
   }
   function makeDraft() {
     if (!prompt) return;
@@ -1410,8 +1428,8 @@ export function ApplicationCoach({
         airlineId={airlineId}
         selected={selectedExperienceIds}
         onSelect={setSelectedExperienceIds}
-        onAdd={onOpenExperience}
-        onBack={() => setStep("prompt")}
+        onAdd={openExperienceLibrary}
+        onBack={() => initialJourneyContext ? onExit() : setStep("prompt")}
         onNext={() => setStep("coaching")}
       />
     );
@@ -1507,7 +1525,8 @@ export function ApplicationCoach({
       <ApplicationAnswerDetail
         answer={current}
         onWeeklyReturn={weeklyReturnAnswerId === current.id ? onWeeklyReturn : undefined}
-        onBack={() => setStep("home")}
+        onJourneyReturn={current.journeyContext ? onExit : undefined}
+        onBack={() => current.journeyContext ? onExit() : setStep("home")}
         onVersions={() => setStep("versions")}
         onConvert={() => setStep("convert")}
         onPractice={onPractice}

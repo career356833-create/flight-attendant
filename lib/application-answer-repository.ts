@@ -13,6 +13,8 @@ import {
 import type { CapabilityKey } from "@/lib/interview-practice-data";
 import { evaluateAnswerQuality, type AnswerQualityRubric } from "@/lib/answer-quality-rubric";
 import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
+import type { AirlineJourneyContext } from "@/lib/airline-journey-context";
+import { mergeJourneyExperienceIds, journeyContextWithExperience } from "@/lib/airline-journey-context";
 
 export type ApplicationDocumentType =
   | "application_question"
@@ -49,6 +51,7 @@ export type ApplicationPrompt = {
   targetCapabilities: CapabilityKey[];
   status: "verified" | "practice" | "custom";
   notes?: string;
+  journeyContext?: AirlineJourneyContext;
 };
 export type DraftEvidence = {
   sentenceId: string;
@@ -178,6 +181,7 @@ export type ApplicationAnswer = {
     servicePhilosophy?: string;
     lastReviewedAt?: string;
   };
+  journeyContext?: AirlineJourneyContext;
   createdAt: string;
   updatedAt: string;
 };
@@ -191,6 +195,7 @@ export type ApplicationWorkDraft = {
   coachingAnswers: Record<string, string>;
   structure: StructureBlock[];
   coreMessage: string;
+  journeyContext?: AirlineJourneyContext;
   updatedAt: string;
 };
 type Progress = {
@@ -307,6 +312,15 @@ export function saveWorkDraft(draft: ApplicationWorkDraft) {
     { ...draft, updatedAt: now() },
     ...s.workDrafts.filter((x) => x.id !== draft.id),
   ].slice(0, 10);
+  return write(s);
+}
+export function linkExperienceToWorkDraft(context: AirlineJourneyContext, experienceId: string) {
+  const s = read();
+  const draft = s.workDrafts.find((item) => item.id === `airline-journey:${context.airlineId}:${context.questionId ?? "general"}`);
+  if (!draft || draft.airlineId !== context.airlineId || draft.journeyContext?.questionId !== context.questionId) return { ok: false as const, reason: "draft_not_found" as const };
+  draft.selectedExperienceIds = mergeJourneyExperienceIds(draft.selectedExperienceIds, experienceId);
+  draft.journeyContext = journeyContextWithExperience(context, experienceId);
+  draft.updatedAt = now();
   return write(s);
 }
 export const getWorkDraft = (id: string) =>
@@ -936,6 +950,7 @@ export function createApplicationAnswer(input: {
           lastReviewedAt: context.lastReviewedAt,
         }
       : undefined,
+    journeyContext: input.prompt.journeyContext,
     createdAt,
     updatedAt: createdAt,
   };

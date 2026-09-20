@@ -14,6 +14,7 @@ export type DailyActionTarget =
   | { kind: "mock_start"; airlineId?: string }
   | { kind: "interview_question"; questionId: string; airlineId?: string; queueItemId?: string }
   | { kind: "application_coach"; airlineId?: string; applicationAnswerId?: string }
+  | { kind: "airline_workspace"; airlineId: string }
   | { kind: "self_introduction"; targetSeconds: 60 }
   | { kind: "experience_library" };
 
@@ -24,6 +25,7 @@ export type DailyActionSource =
   | "adaptive"
   | "weekly_plan"
   | "application_draft"
+  | "airline_target"
   | "balanced_fallback";
 
 export type DailyActionCandidate = {
@@ -69,6 +71,7 @@ export type DailyActionPlanInput = {
   currentApplicationDraft?: { id: string; airlineId?: string; updatedAt: string };
   singleInterviewResume?: SingleInterviewResume | null;
   recentSelfIntroductionAt?: string;
+  primaryAirline?: { id: string; name: string };
   completions?: DailyCompletionEvent[];
 };
 
@@ -239,6 +242,18 @@ function candidates(input: DailyActionPlanInput): DailyActionCandidate[] {
     priority: 100,
     target: fallbackTarget,
     source: "balanced_fallback",
+    resume: false,
+  });
+  if (input.primaryAirline) rows.push({
+    id: `airline-target:${input.primaryAirline.id}`,
+    dedupeKey: `airline-target:${input.primaryAirline.id}`,
+    type: "fallback",
+    title: `${input.primaryAirline.name} 준비 계속`,
+    description: "항공사별 지원서·면접·자기소개 준비 기록을 이어서 확인하세요.",
+    reason: "설정한 1순위 항공사의 다음 준비 행동입니다.",
+    priority: 50,
+    target: { kind: "airline_workspace", airlineId: input.primaryAirline.id },
+    source: "airline_target",
     resume: false,
   });
   return rows;

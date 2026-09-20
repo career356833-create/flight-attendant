@@ -23,6 +23,7 @@ test('selected experience is preserved in resume metadata',()=>assert.equal(resu
 test('target airline identity is preserved before revalidation',()=>assert.equal(resumeFromConfig(config).targetAirlineId,'emirates'))
 test('source lineage is preserved',()=>assert.equal(resumeFromConfig(config,'application_drill').source,'application_drill'))
 test('source context question lineage is preserved',()=>{const row=resumeFromConfig({...config,sourceContext:{source:'mock_report',mockSessionId:'session-1',sourceAttemptId:'attempt-0',questionId:'be1'}},'mock_report');assert.equal(row.sourceContext?.mockSessionId,'session-1')})
+test('airline workspace source returns to the airline workspace',()=>assert.equal(interviewReturnTargetForSource('airline_workspace'),'airline-workspace'))
 test('queue item identity is preserved without changing queue',()=>assert.equal(resumeFromConfig({...config,sourceQueueItemId:'queue-1'},'queue').sourceQueueItemId,'queue-1'))
 test('weekly task context is preserved',()=>{const weekly={weeklyTaskId:'weekly-1',taskType:'interview_question' as const,title:'연습',estimatedMinutes:10,relatedCapability:'interview_communication' as const,source:'weekly_plan' as const,targetKind:'interview' as const};assert.equal(resumeFromConfig({...config,weeklyTaskContext:weekly},'weekly_task').weeklyTaskContext?.weeklyTaskId,'weekly-1')})
 test('startedAt is deterministic when provided',()=>assert.equal(resumeFromConfig(config,'direct','2026-09-01T00:00:00.000Z').startedAt,'2026-09-01T00:00:00.000Z'))
