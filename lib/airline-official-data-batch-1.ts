@@ -49,6 +49,18 @@ const allowedHosts = new Set([
   "www.klm.com",
   "www.klm.co.kr",
   "news.klm.com",
+  "www.delta.com",
+  "news.delta.com",
+  "careers.united.com",
+  "ir.united.com",
+  "businesstravel.united.com",
+  "flightattendants.aa.com",
+  "jobs.aa.com",
+  "news.aa.com",
+  "www.aa.com",
+  "careers.aircanada.com",
+  "vacations.aircanada.com",
+  "www.aircanada.com",
 ]);
 
 export function isAllowedOfficialAirlineSource(sourceUrl: string) {

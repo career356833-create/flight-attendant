@@ -56,6 +56,14 @@ import {
   airlineOfficialBatch6Requirements,
   airlineOfficialBatch6Routes,
 } from "@/lib/airline-official-data-batch-6";
+import {
+  airlineOfficialBatch7Fleet,
+  airlineOfficialBatch7Guidance,
+  airlineOfficialBatch7Profiles,
+  airlineOfficialBatch7RecruitmentSteps,
+  airlineOfficialBatch7Requirements,
+  airlineOfficialBatch7Routes,
+} from "@/lib/airline-official-data-batch-7";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -185,12 +193,12 @@ export function deriveOperationScope(routes: AirlineRoute[]): AirlineOperationSc
 
 export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): AirlineWorkspaceProfile[] {
   const profiles = airlineKnowledgeRepository.listProfiles();
-  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles, ...airlineOfficialBatch6Profiles];
+  const officialProfiles = [...airlineOfficialBatch1Profiles, ...airlineOfficialBatch2Profiles, ...airlineOfficialBatch3AProfiles, ...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles, ...airlineOfficialBatch6Profiles, ...airlineOfficialBatch7Profiles];
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
     const official = officialProfiles.find((profile) => profile.airlineId === item.id);
-    const officialRecruitmentProfile = [...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles, ...airlineOfficialBatch6Profiles].find((profile) => profile.airlineId === item.id);
+    const officialRecruitmentProfile = [...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles, ...airlineOfficialBatch6Profiles, ...airlineOfficialBatch7Profiles].find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
     const sources = official?.sources.filter((source) => isAllowedOfficialAirlineSource(source.sourceUrl)) ?? published?.resources.map(resourceFact) ?? [];
@@ -213,9 +221,9 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       website: official?.website ?? published?.overview.website,
       careersUrl: official?.careersUrl ?? published?.recruitmentProfile.officialCareerPageUrl,
       cabinCrewCareersUrl: officialRecruitmentProfile?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
-      cabinCrewRequirements: [...airlineOfficialBatch4Requirements, ...airlineOfficialBatch5Requirements, ...airlineOfficialBatch6Requirements].filter((requirement) => requirement.airlineId === item.id),
-      recruitmentProcess: [...airlineOfficialBatch4RecruitmentSteps, ...airlineOfficialBatch5RecruitmentSteps, ...airlineOfficialBatch6RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
-      recruitmentGuidance: [...airlineOfficialBatch4Guidance, ...airlineOfficialBatch5Guidance, ...airlineOfficialBatch6Guidance].filter((guidance) => guidance.airlineId === item.id),
+      cabinCrewRequirements: [...airlineOfficialBatch4Requirements, ...airlineOfficialBatch5Requirements, ...airlineOfficialBatch6Requirements, ...airlineOfficialBatch7Requirements].filter((requirement) => requirement.airlineId === item.id),
+      recruitmentProcess: [...airlineOfficialBatch4RecruitmentSteps, ...airlineOfficialBatch5RecruitmentSteps, ...airlineOfficialBatch6RecruitmentSteps, ...airlineOfficialBatch7RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
+      recruitmentGuidance: [...airlineOfficialBatch4Guidance, ...airlineOfficialBatch5Guidance, ...airlineOfficialBatch6Guidance, ...airlineOfficialBatch7Guidance].filter((guidance) => guidance.airlineId === item.id),
       summary: official?.summary ?? published?.overview.brandSummary,
       verified: official?.verified ?? raw?.reviewStatus === "verified",
       published: official?.published ?? raw?.publishStatus === "published",
@@ -227,12 +235,12 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch4Routes, ...airlineOfficialBatch5Routes, ...airlineOfficialBatch6Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch4Routes, ...airlineOfficialBatch5Routes, ...airlineOfficialBatch6Routes, ...airlineOfficialBatch7Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 
 export function mergeAirlineFleet(localFleet: AirlineFleetEntry[] = []) {
-  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch4Fleet, ...airlineOfficialBatch5Fleet, ...airlineOfficialBatch6Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
+  return [...airlineOfficialBatch1Fleet, ...airlineOfficialBatch2Fleet, ...airlineOfficialBatch3AFleet, ...airlineOfficialBatch4Fleet, ...airlineOfficialBatch5Fleet, ...airlineOfficialBatch6Fleet, ...airlineOfficialBatch7Fleet].filter((entry) => isAllowedOfficialAirlineSource(entry.source.sourceUrl)).concat(localFleet)
     .filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index);
 }
 
