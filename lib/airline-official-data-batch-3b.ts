@@ -191,6 +191,9 @@ export type CabinCrewRequirement = {
   source: AirlineFact;
   verifiedAt: string;
   status: "VERIFIED";
+  recruitmentType?: "NEW_GRADUATE" | "CAREER" | "INTERN" | "OTHER";
+  recruitmentPeriod?: string;
+  recordStatus?: "CURRENT" | "ARCHIVED";
 };
 
 const requirement = (
@@ -240,6 +243,9 @@ export type AirlineRecruitmentStep = {
   description: string;
   source: AirlineFact;
   verifiedAt: string;
+  recruitmentType?: "NEW_GRADUATE" | "CAREER" | "INTERN" | "OTHER";
+  recruitmentPeriod?: string;
+  recordStatus?: "CURRENT" | "ARCHIVED";
 };
 
 const step = (
@@ -268,6 +274,9 @@ export type AirlineRecruitmentGuidance = {
   text: string;
   source: AirlineFact;
   verifiedAt: string;
+  recruitmentType?: "NEW_GRADUATE" | "CAREER" | "INTERN" | "OTHER";
+  recruitmentPeriod?: string;
+  recordStatus?: "CURRENT" | "ARCHIVED";
 };
 
 export const airlineOfficialBatch3BGuidance: AirlineRecruitmentGuidance[] = [

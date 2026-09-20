@@ -53,10 +53,10 @@ test("routes are official, current Korea-related representative routes", () => {
   assert.ok(mergeAirlineFleet().some((item) => item.id === "4-jl-a350-1000"));
 });
 
-test("requirements retain official provenance and do not fabricate missing JAL terms", () => {
+test("Batch 4 keeps its JAL gap while the integrated workspace receives later official JAL terms", () => {
   assert.ok(airlineOfficialBatch4Requirements.every((item) => item.status === "VERIFIED" && item.source.sourceAuthority === "AIRLINE_OFFICIAL"));
   assert.equal(airlineOfficialBatch4Requirements.filter((item) => item.airlineId === "japan_airlines").length, 0);
-  assert.equal(profile("japan_airlines").cabinCrewRequirements?.length, 0);
+  assert.equal(profile("japan_airlines").cabinCrewRequirements?.length, 5);
 });
 
 test("selection steps and guidance contain only documented stages", () => {
@@ -78,9 +78,9 @@ test("canonical AI gate remains closed and comparison has no hiring score", () =
   assert.ok(compared.every((item) => !Object.hasOwn(item, "score") && !Object.hasOwn(item, "passProbability")));
 });
 
-test("requirements comparison preserves an official-information gap", () => {
+test("requirements comparison exposes later source-backed JAL requirements", () => {
   const types = compareCabinCrewRequirements(profiles, ["ana", "japan_airlines"]);
-  assert.ok(types.every((row) => row.airlines.find((item) => item.airlineId === "japan_airlines")?.requirements.length === 0));
+  assert.ok(types.some((row) => (row.airlines.find((item) => item.airlineId === "japan_airlines")?.requirements.length ?? 0) > 0));
 });
 
 test("fresh user preparation remains a zero state", () => {

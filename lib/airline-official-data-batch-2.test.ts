@@ -50,11 +50,12 @@ test("Korea and low-cost carrier filters include the Batch 2 targets", () => {
   assert.ok(targetIds.every((id) => lowCostIds.includes(id)));
 });
 
-test("source-backed operation scope is present only where current evidence supports it", () => {
+test("source-backed operation scope includes the later current T'way network patch", () => {
   assert.equal(profileFor("jeju_air")?.operationScope, "BOTH");
   assert.equal(profileFor("jin_air")?.operationScope, "BOTH");
   assert.equal(profileFor("air_busan")?.operationScope, "BOTH");
-  assert.equal(profileFor("tway_air")?.operationScope, null);
+  assert.equal(airlineOfficialBatch2Profiles.find((profile) => profile.airlineId === "tway_air")?.operationScope, undefined);
+  assert.equal(profileFor("tway_air")?.operationScope, "BOTH");
 });
 
 test("Air Busan's low-cost classification is explicitly source-backed and other existing classifications are retained", () => {

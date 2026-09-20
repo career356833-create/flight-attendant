@@ -64,6 +64,14 @@ import {
   airlineOfficialBatch7Requirements,
   airlineOfficialBatch7Routes,
 } from "@/lib/airline-official-data-batch-7";
+import {
+  airlineOfficialBatch8Guidance,
+  airlineOfficialBatch8ProfilePatches,
+  airlineOfficialBatch8RecruitmentSteps,
+  airlineOfficialBatch8Requirements,
+  airlineOfficialBatch8Routes,
+  applyAirlineOfficialBatch8Patch,
+} from "@/lib/airline-official-data-batch-8";
 
 export type AirlineOperationScope = "DOMESTIC" | "INTERNATIONAL" | "BOTH";
 export type AirlineCarrierType = "FULL_SERVICE" | "LOW_COST" | "HYBRID" | "REGIONAL" | "OTHER";
@@ -197,7 +205,11 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
   return airlineMaster.filter((item) => item.status !== "inactive").map((item: AirlineMaster) => {
     const canonical = airlineById.get(item.id);
     const raw = profiles.find((profile) => profile.airlineId === item.id);
-    const official = officialProfiles.find((profile) => profile.airlineId === item.id);
+    const baseOfficial = officialProfiles.find((profile) => profile.airlineId === item.id);
+    const batch8Patch = airlineOfficialBatch8ProfilePatches.find((patch) => patch.airlineId === item.id);
+    const official = baseOfficial && batch8Patch
+      ? applyAirlineOfficialBatch8Patch(baseOfficial, batch8Patch).profile
+      : baseOfficial;
     const officialRecruitmentProfile = [...airlineOfficialBatch4Profiles, ...airlineOfficialBatch5Profiles, ...airlineOfficialBatch6Profiles, ...airlineOfficialBatch7Profiles].find((profile) => profile.airlineId === item.id);
     const canHavePublishedKnowledge = Boolean(raw && ["reviewed", "approved", "verified"].includes(raw.reviewStatus) && (raw.publishStatus === undefined || raw.publishStatus === "published"));
     const published = canHavePublishedKnowledge ? getPublishedAirlineKnowledge(item.id) : null;
@@ -220,10 +232,11 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
       hubs: official?.hubs ?? published?.overview.primaryHubs ?? [],
       website: official?.website ?? published?.overview.website,
       careersUrl: official?.careersUrl ?? published?.recruitmentProfile.officialCareerPageUrl,
-      cabinCrewCareersUrl: officialRecruitmentProfile?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
-      cabinCrewRequirements: [...airlineOfficialBatch4Requirements, ...airlineOfficialBatch5Requirements, ...airlineOfficialBatch6Requirements, ...airlineOfficialBatch7Requirements].filter((requirement) => requirement.airlineId === item.id),
-      recruitmentProcess: [...airlineOfficialBatch4RecruitmentSteps, ...airlineOfficialBatch5RecruitmentSteps, ...airlineOfficialBatch6RecruitmentSteps, ...airlineOfficialBatch7RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
-      recruitmentGuidance: [...airlineOfficialBatch4Guidance, ...airlineOfficialBatch5Guidance, ...airlineOfficialBatch6Guidance, ...airlineOfficialBatch7Guidance].filter((guidance) => guidance.airlineId === item.id),
+      cabinCrewCareersUrl: official?.sources.filter((source) => source.type === "cabin_crew_careers").at(-1)?.sourceUrl
+        ?? officialRecruitmentProfile?.sources.find((source) => source.type === "cabin_crew_careers")?.sourceUrl,
+      cabinCrewRequirements: [...airlineOfficialBatch4Requirements, ...airlineOfficialBatch5Requirements, ...airlineOfficialBatch6Requirements, ...airlineOfficialBatch7Requirements, ...airlineOfficialBatch8Requirements].filter((requirement) => requirement.airlineId === item.id),
+      recruitmentProcess: [...airlineOfficialBatch4RecruitmentSteps, ...airlineOfficialBatch5RecruitmentSteps, ...airlineOfficialBatch6RecruitmentSteps, ...airlineOfficialBatch7RecruitmentSteps, ...airlineOfficialBatch8RecruitmentSteps].filter((step) => step.airlineId === item.id).sort((a, b) => a.order - b.order),
+      recruitmentGuidance: [...airlineOfficialBatch4Guidance, ...airlineOfficialBatch5Guidance, ...airlineOfficialBatch6Guidance, ...airlineOfficialBatch7Guidance, ...airlineOfficialBatch8Guidance].filter((guidance) => guidance.airlineId === item.id),
       summary: official?.summary ?? published?.overview.brandSummary,
       verified: official?.verified ?? raw?.reviewStatus === "verified",
       published: official?.published ?? raw?.publishStatus === "published",
@@ -235,7 +248,7 @@ export function buildAirlineWorkspaceProfiles(routes: AirlineRoute[] = []): Airl
 }
 
 export function mergeAirlineRoutes(localRoutes: AirlineRoute[] = []) {
-  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch4Routes, ...airlineOfficialBatch5Routes, ...airlineOfficialBatch6Routes, ...airlineOfficialBatch7Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
+  return [...airlineOfficialBatch1Routes, ...airlineOfficialBatch2Routes, ...airlineOfficialBatch3ARoutes, ...airlineOfficialBatch4Routes, ...airlineOfficialBatch5Routes, ...airlineOfficialBatch6Routes, ...airlineOfficialBatch7Routes, ...airlineOfficialBatch8Routes].filter((route) => isAllowedOfficialAirlineSource(route.source.sourceUrl)).concat(localRoutes)
     .filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
 }
 

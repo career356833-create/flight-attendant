@@ -115,8 +115,9 @@ test("no official application question is created without official question text
   assert.equal(airlineOfficialBatch1Stats.officialQuestions, 0);
 });
 
-test("unverified hub designation is not inferred from route departures", () => {
-  assert.deepEqual(koreanAir?.hubs, []);
+test("Batch 1 does not infer hubs while the integrated workspace accepts the later official hub patch", () => {
+  assert.deepEqual(airlineOfficialBatch1Profiles.find((profile) => profile.airlineId === "korean_air")?.hubs, []);
+  assert.deepEqual(koreanAir?.hubs, ["Incheon International Airport (ICN)"]);
   assert.deepEqual(asiana?.hubs, []);
 });
 

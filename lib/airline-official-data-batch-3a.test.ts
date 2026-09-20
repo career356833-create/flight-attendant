@@ -67,8 +67,8 @@ test("current official operation evidence marks both airlines as BOTH", () => {
   assert.ok(targetIds.every((id) => filterAirlines(profiles, { operationScope: "INTERNATIONAL" }).some((profile) => profile.id === id)));
 });
 
-test("UNKNOWN handling remains honest for an airline without confirmed routes", () => {
-  assert.equal(buildAirlineWorkspaceProfiles([]).find((profile) => profile.id === "tway_air")?.operationScope, null);
+test("T'way scope no longer depends on passed routes after the later official network patch", () => {
+  assert.equal(buildAirlineWorkspaceProfiles([]).find((profile) => profile.id === "tway_air")?.operationScope, "BOTH");
 });
 
 test("neither profile infers a hub from a departure airport", () => {

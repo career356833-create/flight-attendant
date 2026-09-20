@@ -3,6 +3,7 @@ import type { AirlineCarrierType, AirlineFact, AirlineFleetEntry, AirlineOperati
 const verifiedAt = "2026-09-14T00:00:00.000Z";
 const allowedHosts = new Set([
   "www.koreanair.com",
+  "news.koreanair.com",
   "koreanair.recruiter.co.kr",
   "kr.img.news.koreanair.com",
   "flyasiana.com",
@@ -38,6 +39,7 @@ const allowedHosts = new Set([
   "flights.cathaypacific.com",
   "www.ana.co.jp",
   "www.jal.com",
+  "www.job-jal.com",
   "www.lufthansagroup.careers",
   "www.lufthansa.com",
   "careers.ba.com",
