@@ -7,6 +7,7 @@ import type { SelfIntroductionAttempt } from "@/lib/self-introduction-data";
 import type { SingleInterviewResume } from "@/lib/single-interview-resume";
 import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
 import { airlineJourneyContextFromQuestion } from "@/lib/airline-journey-context";
+import { canPracticeCommunityQuestion } from "@/lib/airline-question-community-evidence";
 
 export type AirlineJourneyStepId = "company" | "requirements" | "questions" | "application" | "experience" | "interview" | "self_intro" | "mock" | "result" | "next_practice";
 export type AirlineJourneyStepStatus = "completed" | "in_progress" | "not_started" | "unavailable";
@@ -67,7 +68,8 @@ export function buildApplicationJourneyLineage(question: WorkspaceQuestion) {
 }
 
 export function buildAirlineJourneyState(input: AirlineJourneyInput): AirlineJourneyState {
-  const questions = (input.questions ?? []).filter((item) => item.airlineId === input.airlineId);
+  // Pending / rejected user reports are kept out of the official question counts and recruitment periods.
+  const questions = (input.questions ?? []).filter((item) => item.airlineId === input.airlineId && canPracticeCommunityQuestion(item));
   const applicationQuestions = questions.filter((item) => item.kind === "APPLICATION");
   const answers = (input.answers ?? []).filter((item) => item.airlineId === input.airlineId);
   const drafts = (input.workDrafts ?? []).filter((item) => item.airlineId === input.airlineId);

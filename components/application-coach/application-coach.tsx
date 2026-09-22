@@ -31,7 +31,8 @@ import {
   generateApplicationDraftWithPublishedKnowledge,
   getApplicationAirlineContext,
   getApplicationAnswer,
-  getWorkDraft,
+  findJourneyWorkDraft,
+  LEGACY_ACTIVE_WORK_DRAFT_ID,
   getVerifiedAirlineContext,
   listApplicationAnswers,
   listAnswerVersions,
@@ -106,7 +107,7 @@ function Screen({
               type="button"
               onClick={onBack}
               aria-label={t.back}
-              className="rounded-full p-2 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-gold"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-gold"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -186,15 +187,31 @@ export function ApplicationCoachHome({
   answers,
   onNew,
   onOpen,
+  onExit,
+  returnLabel,
 }: {
   answers: ApplicationAnswer[];
   onNew: () => void;
   onOpen: (a: ApplicationAnswer) => void;
+  /** Leaves the coach (back arrow in the header). Always offered so the home step is never a dead end on mobile. */
+  onExit?: () => void;
+  /** When the coach was opened from an airline workspace, a labelled return CTA is shown above the summary. */
+  returnLabel?: string;
 }) {
   const airlineCount = new Set(answers.map((a) => a.airlineId).filter(Boolean))
     .size;
   return (
-    <Screen title={t.title} subtitle={t.subtitle}>
+    <Screen title={t.title} subtitle={t.subtitle} onBack={onExit}>
+      {onExit && returnLabel && (
+        <button
+          type="button"
+          onClick={onExit}
+          data-testid="application-coach-journey-return"
+          className="mb-4 min-h-11 w-full rounded-xl border border-navy text-sm font-bold text-navy"
+        >
+          {returnLabel}
+        </button>
+      )}
       <section className="grid grid-cols-2 gap-3">
         <Summary label={t.savedAnswers} value={String(answers.length)} />
         <Summary label={t.airlinesInProgress} value={String(airlineCount)} />
@@ -533,7 +550,16 @@ export function ApplicationExperiencePicker({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const recommendations = recommendApplicationExperiences(prompt);
+  const stored = experienceRepository.load().experiences;
+  const ranked = recommendApplicationExperiences(prompt, stored);
+  // Experiences already linked to this draft (e.g. returned from the experience library) stay visible even when the
+  // rule-based match score is 0, so a journey link is never silently hidden.
+  const recommendations = [
+    ...ranked,
+    ...stored
+      .filter((experience) => selected.includes(experience.id) && !ranked.some((item) => item.experience.id === experience.id))
+      .map((experience) => ({ experience, reason: t.linkedExperienceReason })),
+  ];
   const airlineMatches = new Map(
     recommendAirlineExperienceMatches(airlineId).map(
       ({ experience, match }) => [experience.id, match],
@@ -588,8 +614,8 @@ export function ApplicationExperiencePicker({
         })}
       </div>
       {!recommendations.length && (
-        <div className={cn(card, "text-sm text-muted-foreground")}>
-          저장된 경험이 아직 없어요. 경험 없이 계속하거나 새 경험을 추가하세요.
+        <div className={cn(card, "text-sm text-muted-foreground")} data-testid="application-experience-empty">
+          {stored.length ? t.noMatchingExperience : t.noSavedExperience}
         </div>
       )}
       <button
@@ -1288,11 +1314,12 @@ export function ApplicationCoach({
   onWeeklyReturn?: () => void;
   initialJourneyContext?: AirlineJourneyContext;
 }) {
-  const journeyDraft = initialJourneyContext ? getWorkDraft(airlineJourneyDraftId(initialJourneyContext)) : undefined;
+  // Canonical journey draft first, then the legacy "active" draft saved for the same airline before canonical ids existed.
+  const journeyDraft = initialJourneyContext ? findJourneyWorkDraft(initialJourneyContext) : undefined;
   const journeyPrompt = journeyDraft?.prompt ?? applicationPromptFromJourneyContext(initialJourneyContext);
   const [step, setStep] = useState<Step>(journeyPrompt ? "experience" : "home"),
     [saved, setSaved] = useState<ApplicationAnswer[]>([]),
-    [airlineId, setAirlineId] = useState<string | undefined>(initialAirlineId),
+    [airlineId, setAirlineId] = useState<string | undefined>(journeyDraft?.airlineId ?? initialAirlineId),
     [documentType, setDocumentType] = useState<ApplicationDocumentType | undefined>(journeyDraft?.documentType ?? journeyPrompt?.documentType),
     [prompt, setPrompt] = useState<ApplicationPrompt | undefined>(journeyPrompt),
     [selectedExperienceIds, setSelectedExperienceIds] = useState<string[]>(journeyDraft?.selectedExperienceIds ?? []),
@@ -1305,11 +1332,20 @@ export function ApplicationCoach({
     [analysis, setAnalysis] = useState<ApplicationAnswerAnalysis>(),
     [current, setCurrent] = useState<ApplicationAnswer>();
   const experiences = experienceRepository.load().experiences;
+  // Journey context that identifies this draft: the question's own context, or the airline-only ("general") context
+  // when the coach was opened from an airline workspace without a specific question.
+  const promptJourneyContext = prompt?.journeyContext;
+  const draftJourneyContext = useMemo<AirlineJourneyContext | undefined>(
+    () => promptJourneyContext ?? (initialJourneyContext ? { ...initialJourneyContext, airlineId: airlineId ?? initialJourneyContext.airlineId } : undefined),
+    [promptJourneyContext, initialJourneyContext, airlineId],
+  );
+  const draftId = draftJourneyContext ? airlineJourneyDraftId(draftJourneyContext) : LEGACY_ACTIVE_WORK_DRAFT_ID;
+  const journeyReturnLabel = initialJourneyContext?.origin === "airline_workspace" || initialJourneyContext?.origin === "application" ? t.journeyReturn : undefined;
   useEffect(() => setSaved(listApplicationAnswers()), []);
   useEffect(() => {
     if ((step === "experience" || step === "coaching") && prompt)
       saveWorkDraft({
-        id: prompt.journeyContext ? airlineJourneyDraftId(prompt.journeyContext) : "active",
+        id: draftId,
         airlineId,
         documentType,
         prompt,
@@ -1317,10 +1353,12 @@ export function ApplicationCoach({
         coachingAnswers,
         structure: blocks,
         coreMessage,
-        journeyContext: prompt.journeyContext,
+        journeyContext: draftJourneyContext,
         updatedAt: new Date().toISOString(),
       });
   }, [
+    draftId,
+    draftJourneyContext,
     step,
     airlineId,
     documentType,
@@ -1343,8 +1381,8 @@ export function ApplicationCoach({
     setStep("airline");
   }
   function openExperienceLibrary() {
-    if (prompt) saveWorkDraft({ id: prompt.journeyContext ? airlineJourneyDraftId(prompt.journeyContext) : "active", airlineId, documentType, prompt, selectedExperienceIds, coachingAnswers, structure: blocks, coreMessage, journeyContext: prompt.journeyContext, updatedAt: new Date().toISOString() });
-    onOpenExperience(prompt?.journeyContext ?? initialJourneyContext);
+    if (prompt) saveWorkDraft({ id: draftId, airlineId, documentType, prompt, selectedExperienceIds, coachingAnswers, structure: blocks, coreMessage, journeyContext: draftJourneyContext, updatedAt: new Date().toISOString() });
+    onOpenExperience(draftJourneyContext);
   }
   function makeDraft() {
     if (!prompt) return;
@@ -1390,6 +1428,8 @@ export function ApplicationCoach({
           setCurrent(a);
           setStep("detail");
         }}
+        onExit={onExit}
+        returnLabel={journeyReturnLabel}
       />
     );
   if (step === "airline")
@@ -1429,7 +1469,7 @@ export function ApplicationCoach({
         selected={selectedExperienceIds}
         onSelect={setSelectedExperienceIds}
         onAdd={openExperienceLibrary}
-        onBack={() => initialJourneyContext ? onExit() : setStep("prompt")}
+        onBack={() => initialJourneyContext?.questionId ? onExit() : setStep("prompt")}
         onNext={() => setStep("coaching")}
       />
     );
@@ -1525,7 +1565,7 @@ export function ApplicationCoach({
       <ApplicationAnswerDetail
         answer={current}
         onWeeklyReturn={weeklyReturnAnswerId === current.id ? onWeeklyReturn : undefined}
-        onJourneyReturn={current.journeyContext ? onExit : undefined}
+        onJourneyReturn={current.journeyContext || journeyReturnLabel ? onExit : undefined}
         onBack={() => current.journeyContext ? onExit() : setStep("home")}
         onVersions={() => setStep("versions")}
         onConvert={() => setStep("convert")}

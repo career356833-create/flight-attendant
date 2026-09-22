@@ -1,5 +1,6 @@
 import type { ApplicationPrompt, ApplicationWorkDraft } from "@/lib/application-answer-repository";
 import type { WorkspaceQuestion } from "@/lib/airline-targeting-workspace";
+import type { InterviewPracticeSourceContext } from "@/lib/interview-practice-data";
 
 export type AirlineJourneyOrigin = "airline_workspace" | "application" | "experience" | "single_interview" | "mock" | "self_intro";
 export type AirlineJourneyReturnTab = "overview" | "application" | "questions" | "experience" | "practice";
@@ -75,4 +76,25 @@ export const journeyContextWithAttempt = (context: AirlineJourneyContext, previo
 
 export function journeyDraftMatches(draft: ApplicationWorkDraft, context: AirlineJourneyContext) {
   return draft.airlineId === context.airlineId && draft.journeyContext?.questionId === context.questionId;
+}
+
+/**
+ * Rebuilds the workspace journey context from a practice attempt's lineage (retake / result return),
+ * so a retaken airline question returns to the same airline detail and question tab.
+ */
+export function journeyContextFromPracticeLineage(
+  lineage: Pick<InterviewPracticeSourceContext, "source" | "airlineId" | "workspaceQuestionId" | "questionKind" | "questionSourceType" | "questionProvenance"> | undefined,
+  questionText?: string,
+): AirlineJourneyContext | undefined {
+  if (!lineage || lineage.source !== "airline_workspace" || !lineage.airlineId) return undefined;
+  return {
+    airlineId: lineage.airlineId,
+    questionId: lineage.workspaceQuestionId,
+    questionText,
+    questionKind: lineage.questionKind,
+    sourceType: lineage.questionSourceType as WorkspaceQuestion["sourceType"] | undefined,
+    provenance: lineage.questionProvenance,
+    origin: "single_interview",
+    returnTab: lineage.workspaceQuestionId ? "questions" : "practice",
+  };
 }

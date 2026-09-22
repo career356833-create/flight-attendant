@@ -14,7 +14,7 @@ import type { CapabilityKey } from "@/lib/interview-practice-data";
 import { evaluateAnswerQuality, type AnswerQualityRubric } from "@/lib/answer-quality-rubric";
 import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
 import type { AirlineJourneyContext } from "@/lib/airline-journey-context";
-import { mergeJourneyExperienceIds, journeyContextWithExperience } from "@/lib/airline-journey-context";
+import { airlineJourneyDraftId, mergeJourneyExperienceIds, journeyContextWithExperience } from "@/lib/airline-journey-context";
 
 export type ApplicationDocumentType =
   | "application_question"
@@ -314,10 +314,30 @@ export function saveWorkDraft(draft: ApplicationWorkDraft) {
   ].slice(0, 10);
   return write(s);
 }
+/** Legacy id used before airline-workspace drafts got a canonical journey id. */
+export const LEGACY_ACTIVE_WORK_DRAFT_ID = "active";
+function legacyDraftMatchesContext(draft: ApplicationWorkDraft, context: Pick<AirlineJourneyContext, "airlineId" | "questionId">) {
+  return draft.id === LEGACY_ACTIVE_WORK_DRAFT_ID && !context.questionId && draft.airlineId === context.airlineId && !draft.journeyContext?.questionId;
+}
+/**
+ * Finds the work draft for a journey context: the canonical `airline-journey:{airlineId}:{questionId|general}` draft first,
+ * then a legacy "active" draft saved for the same airline before canonical ids existed.
+ */
+export function findJourneyWorkDraft(context: Pick<AirlineJourneyContext, "airlineId" | "questionId">, drafts = read().workDrafts) {
+  const canonicalId = airlineJourneyDraftId(context);
+  return drafts.find((item) => item.id === canonicalId) ?? drafts.find((item) => legacyDraftMatchesContext(item, context));
+}
 export function linkExperienceToWorkDraft(context: AirlineJourneyContext, experienceId: string) {
   const s = read();
-  const draft = s.workDrafts.find((item) => item.id === `airline-journey:${context.airlineId}:${context.questionId ?? "general"}`);
-  if (!draft || draft.airlineId !== context.airlineId || draft.journeyContext?.questionId !== context.questionId) return { ok: false as const, reason: "draft_not_found" as const };
+  const draft = findJourneyWorkDraft(context, s.workDrafts);
+  if (!draft || (draft.journeyContext?.questionId ?? undefined) !== context.questionId) return { ok: false as const, reason: "draft_not_found" as const };
+  // A legacy "active" draft is promoted to its canonical id so later lookups and returns stay stable.
+  const canonicalId = airlineJourneyDraftId(context);
+  if (draft.id !== canonicalId) {
+    draft.id = canonicalId;
+    s.workDrafts = s.workDrafts.filter((item) => item === draft || item.id !== canonicalId);
+  }
+  if (!draft.airlineId) draft.airlineId = context.airlineId;
   draft.selectedExperienceIds = mergeJourneyExperienceIds(draft.selectedExperienceIds, experienceId);
   draft.journeyContext = journeyContextWithExperience(context, experienceId);
   draft.updatedAt = now();

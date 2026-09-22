@@ -9,7 +9,7 @@ import {
 import type { AirlineSelection } from "@/lib/airline-data";
 import type { ApplicationAnswer } from "@/lib/application-answer-repository";
 import type { CareerExperience } from "@/lib/experience-repository";
-import type { InterviewAttempt } from "@/lib/interview-practice-data";
+import { interviewQuestions, type InterviewAttempt, type InterviewCategory, type InterviewQuestion } from "@/lib/interview-practice-data";
 import { safeLocalStorageWrite } from "@/lib/safe-local-storage";
 import {
   airlineOfficialBatch1Fleet,
@@ -89,6 +89,7 @@ import {
   type AirlineQuestionProvenance,
 } from "@/lib/airline-question-provenance";
 import {
+  canPracticeCommunityQuestion,
   createUserReportedQuestion,
   type QuestionInterviewStage,
   type QuestionModerationStatus,
@@ -420,8 +421,90 @@ export function buildPracticeLineage(airlineId: string, question: WorkspaceQuest
   return { source: "airline_workspace" as const, airlineId, workspaceQuestionId: question.id, questionKind: question.kind, questionSourceType: question.sourceType, questionProvenance: questionProvenance(question) };
 }
 
+/** Practice question ids minted from workspace questions carry this prefix so catalog ids (im1, be1, ...) never collide. */
+export const WORKSPACE_PRACTICE_QUESTION_PREFIX = "airline-question:";
+export const isWorkspacePracticeQuestionId = (questionId: string) => questionId.startsWith(WORKSPACE_PRACTICE_QUESTION_PREFIX);
+export const workspacePracticeQuestionId = (question: Pick<WorkspaceQuestion, "id">) => `${WORKSPACE_PRACTICE_QUESTION_PREFIX}${question.id}`;
+
+const interviewCategoryByQuestionCategory: Record<AirlineQuestionCategory, InterviewCategory> = {
+  SAFETY: "safety_and_role_judgment",
+  SERVICE: "customer_situation",
+  CUSTOMER_COMPLAINT: "customer_situation",
+  SITUATIONAL: "customer_situation",
+  CONFLICT: "customer_situation",
+  EXPERIENCE: "behavioral_experience",
+  TEAMWORK: "behavioral_experience",
+  STRENGTH_WEAKNESS: "behavioral_experience",
+  MOTIVATION: "introduction_and_motivation",
+  COMPANY_FIT: "introduction_and_motivation",
+  SELF_INTRODUCTION: "introduction_and_motivation",
+  GLOBAL_MINDSET: "introduction_and_motivation",
+  OTHER: "introduction_and_motivation",
+};
+export const workspaceQuestionInterviewCategory = (category: AirlineQuestionCategory): InterviewCategory => interviewCategoryByQuestionCategory[category] ?? "introduction_and_motivation";
+
+const provenanceGuidance: Record<AirlineQuestionProvenance, string> = {
+  OFFICIAL_CURRENT: "공식 채용 자료의 질문입니다.",
+  OFFICIAL_ARCHIVE: "과거 공식 질문입니다. 당시 채용 자료 기준이며 현재 채용 질문과 다를 수 있습니다.",
+  VERIFIED_SECONDARY: "검증된 2차 출처의 질문입니다.",
+  USER_REPORTED: "검토를 통과한 사용자 제보 질문입니다.",
+  UNVERIFIED_COMMUNITY: "미검증 커뮤니티 질문입니다.",
+};
+
+/** Guidance shown under the practice prompt so archived questions are never presented as current ones. */
+export function workspaceQuestionPracticeGuidance(question: WorkspaceQuestion) {
+  const period = [...new Set([question.year ? `${question.year}` : undefined, question.recruitmentPeriod].filter((value): value is string => Boolean(value)))];
+  return [provenanceGuidance[questionProvenance(question)], period.length ? `채용 시기: ${period.join(" · ")}` : undefined, "질문 원문 그대로 답하며 상황·행동·결과와 객실승무원 직무 연결이 드러나도록 답해 보세요."].filter(Boolean).join(" ");
+}
+
+/**
+ * Turns a practicable workspace interview question into a practice-engine question.
+ * The original question text is kept verbatim; only INTERVIEW-kind, practicable (official / verified / accepted) questions qualify.
+ */
+export function workspaceQuestionToInterviewQuestion(question: WorkspaceQuestion): InterviewQuestion | null {
+  const text = question.questionText?.trim();
+  if (question.kind !== "INTERVIEW" || !text || !canPracticeCommunityQuestion(question)) return null;
+  const category = workspaceQuestionInterviewCategory(question.category);
+  const template = interviewQuestions.find((item) => item.category === category) ?? interviewQuestions[0];
+  if (!template) return null;
+  return {
+    id: workspacePracticeQuestionId(question),
+    category,
+    prompt: text,
+    shortTitle: text.length > 40 ? `${text.slice(0, 40)}…` : text,
+    difficulty: template.difficulty,
+    targetCapabilities: template.targetCapabilities,
+    evaluationRubric: { keys: template.evaluationRubric.keys, guidance: workspaceQuestionPracticeGuidance(question) },
+    suggestedAnswerRange: template.suggestedAnswerRange,
+    followUpQuestionIds: [],
+    airlineTags: [question.airlineId],
+    businessModelTags: [],
+    regionTags: [],
+    localeKey: `airline-question.${question.id}`,
+  };
+}
+
+/** Resolves a practice question minted by `workspaceQuestionToInterviewQuestion` back from its stored id. */
+export function resolveWorkspaceInterviewQuestion(questionId: string, airlineId?: string): InterviewQuestion | undefined {
+  if (!isWorkspacePracticeQuestionId(questionId)) return undefined;
+  const rawId = questionId.slice(WORKSPACE_PRACTICE_QUESTION_PREFIX.length);
+  const stored = readStore().questions;
+  const airlineIds = airlineId ? [airlineId] : [...new Set([...airlineOfficialBatch9InterviewQuestions.map((item) => item.airlineId), ...stored.map((item) => item.airlineId)])];
+  for (const id of airlineIds) {
+    const match = [...getSourceBackedWorkspaceQuestions(id), ...stored.filter((item) => item.airlineId === id)].find((item) => item.id === rawId);
+    if (match) return workspaceQuestionToInterviewQuestion(match) ?? undefined;
+  }
+  return undefined;
+}
+
+/** Pending / rejected user reports never count as airline questions; they are surfaced separately. */
+export const isCountableWorkspaceQuestion = (question: WorkspaceQuestion) => canPracticeCommunityQuestion(question);
+/** User reports still waiting for review, shown next to the official counts without being mixed into them. */
+export const countPendingUserReports = (questions: WorkspaceQuestion[], airlineId: string) =>
+  questions.filter((item) => item.airlineId === airlineId && questionProvenance(item) === "USER_REPORTED" && item.moderationStatus !== "ACCEPTED" && item.moderationStatus !== "REJECTED").length;
+
 export function buildPreparationStatus(input: { airlineId: string; questions: WorkspaceQuestion[]; answers: ApplicationAnswer[]; attempts: InterviewAttempt[]; experiences: CareerExperience[] }) {
-  const questions = input.questions.filter((item) => item.airlineId === input.airlineId);
+  const questions = input.questions.filter((item) => item.airlineId === input.airlineId && isCountableWorkspaceQuestion(item));
   const answers = input.answers.filter((item) => item.airlineId === input.airlineId);
   const applicationQuestionIds = new Set(questions.filter((item) => item.kind === "APPLICATION").map((item) => item.id));
   const attempts = input.attempts.filter((item) => item.targetAirlineId === input.airlineId && item.completed);
