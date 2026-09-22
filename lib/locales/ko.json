@@ -210,6 +210,14 @@
     "regions": { "asia_pacific": "아시아·태평양", "middle_east": "중동", "europe": "유럽", "north_america": "북미", "latin_america": "중남미", "africa": "아프리카", "other": "기타" },
     "countries": { "KR": "대한민국", "SG": "싱가포르", "HK": "홍콩", "JP": "일본", "AU": "호주", "NZ": "뉴질랜드", "MY": "말레이시아", "PH": "필리핀", "VN": "베트남", "TW": "대만", "TH": "태국", "ID": "인도네시아", "IN": "인도", "AE": "아랍에미리트", "QA": "카타르", "SA": "사우디아라비아", "DE": "독일", "FR": "프랑스", "NL": "네덜란드", "GB": "영국", "TR": "튀르키예", "IE": "아일랜드", "HU": "헝가리", "ES": "스페인", "CH": "스위스", "FI": "핀란드", "US": "미국", "CA": "캐나다", "CL": "칠레", "CO": "콜롬비아", "PA": "파나마", "MX": "멕시코", "ET": "에티오피아", "KE": "케냐", "ZA": "남아프리카공화국", "RW": "르완다" }
   },
+  "airlineProgress": {
+    "applicationAnswers": "지원서 답변",
+    "applicationQuestions": "지원서 질문",
+    "ratioCaption": "저장 답변 / 저장 질문",
+    "countSuffix": "개",
+    "none": "없음",
+    "noOfficialApplicationQuestions": "확인된 공식 지원서 질문 없음"
+  },
   "airlineDataPack": {
     "officialCareers": "공식 채용 페이지",
     "verificationNotice": "채용 공고와 지원 자격은 지원 전 공식 페이지에서 다시 확인하세요.",

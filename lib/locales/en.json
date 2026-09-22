@@ -133,6 +133,14 @@
     "regions": { "asia_pacific": "Asia Pacific", "middle_east": "Middle East", "europe": "Europe", "north_america": "North America", "latin_america": "Latin America", "africa": "Africa", "other": "Other" },
     "countries": { "KR": "South Korea", "SG": "Singapore", "HK": "Hong Kong", "JP": "Japan", "AU": "Australia", "NZ": "New Zealand", "MY": "Malaysia", "PH": "Philippines", "VN": "Vietnam", "TW": "Taiwan", "TH": "Thailand", "ID": "Indonesia", "IN": "India", "AE": "United Arab Emirates", "QA": "Qatar", "SA": "Saudi Arabia", "DE": "Germany", "FR": "France", "NL": "Netherlands", "GB": "United Kingdom", "TR": "Türkiye", "IE": "Ireland", "HU": "Hungary", "ES": "Spain", "CH": "Switzerland", "FI": "Finland", "US": "United States", "CA": "Canada", "CL": "Chile", "CO": "Colombia", "PA": "Panama", "MX": "Mexico", "ET": "Ethiopia", "KE": "Kenya", "ZA": "South Africa", "RW": "Rwanda" }
   },
+  "airlineProgress": {
+    "applicationAnswers": "Application answers",
+    "applicationQuestions": "Application questions",
+    "ratioCaption": "Saved answers / saved questions",
+    "countSuffix": "",
+    "none": "None",
+    "noOfficialApplicationQuestions": "No confirmed official application questions"
+  },
   "airlineDataPack": {
     "officialCareers": "Official careers page",
     "verificationNotice": "Recheck the live vacancy and eligibility on the official page before applying.",
