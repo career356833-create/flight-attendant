@@ -51,6 +51,11 @@ import { completeWeeklyInterviewAttempt, completeWeeklyTaskContext, createWeekly
 import type { MockReportAction } from '@/lib/mock-report-actions'
 import { interviewReturnTargetForSource, restoreSingleInterviewConfig, resumeFromConfig, singleInterviewResumeRepository, sortSingleInterviewHistory, type InterviewPracticeReturnTarget, type SingleInterviewResume, type SingleInterviewResumeSource } from '@/lib/single-interview-resume'
 import { deriveHomePresentationModel } from '@/lib/home-presentation'
+import { buildPreparationHomeModel, type PreparationHomeAction } from '@/lib/airline-preparation-home'
+import { airlineJourneyViewRepository, buildAirlineJourneyState } from '@/lib/airline-target-journey'
+import { airlineTargetingRepository, getSourceBackedWorkspaceQuestions } from '@/lib/airline-targeting-workspace'
+import { listAnswersByAirline } from '@/lib/application-answer-repository'
+import { competencyAssessmentRepository } from '@/lib/competency-assessment'
 import { exitSelfIntroductionForNavigation, type PrimaryNavigationTarget } from '@/lib/self-introduction-navigation'
 import { isWeeklyResultReturnEligible, type WeeklyResultReturn } from '@/lib/weekly-result-return'
 import { attachCompetencyVideoAttempt, type VideoQuestion } from '@/lib/competency-assessment'
@@ -61,13 +66,13 @@ import dynamic from 'next/dynamic'
 
 const CompetencyAssessment=dynamic(()=>import('@/components/competency-assessment/competency-assessment').then(module=>module.CompetencyAssessment))
 
-function DailyActionCard({action,primary=false,onStart}:{action:DailyActionCandidate;primary?:boolean;onStart:()=>void}){
-  return <article className={primary?'rounded-3xl bg-navy p-6 text-ivory shadow-sm':'rounded-2xl border border-border bg-card p-4'}>
-    <span className={`text-xs font-bold ${primary?'text-gold':'text-muted-foreground'}`}>{primary?'지금 할 일':'다음 할 일'}{action.resume?' · 이어하기':''}</span>
+function PreparationActionCard({action,primary=false,onStart}:{action:PreparationHomeAction;primary?:boolean;onStart:()=>void}){
+  return <article className={primary?'rounded-3xl bg-navy p-6 text-ivory shadow-sm':'rounded-2xl border border-border bg-card p-4'} data-testid={`preparation-action-${action.kind}`}>
+    <span className={`text-xs font-bold ${primary?'text-gold':'text-muted-foreground'}`}>{action.sectionLabel}</span>
     <h2 className={`mt-2 font-bold ${primary?'text-2xl':'text-base text-navy'}`}>{action.title}</h2>
-    <p className={`mt-2 text-sm leading-relaxed ${primary?'text-ivory/75':'text-muted-foreground'}`}>{action.description}</p>
+    {action.description?<p className={`mt-2 text-sm leading-relaxed ${primary?'text-ivory/75':'text-muted-foreground'}`}>{action.description}</p>:null}
     <p className={`mt-3 text-xs leading-relaxed ${primary?'text-gold':'text-midnight'}`}>{action.reason}</p>
-    <button type="button" onClick={onStart} className={`mt-4 h-11 w-full rounded-xl text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${primary?'bg-gold text-navy':'bg-navy text-ivory'}`}>{action.resume?'이어하기':'시작하기'}</button>
+    <button type="button" onClick={onStart} className={`mt-4 h-11 w-full rounded-xl text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${primary?'bg-gold text-navy':'bg-navy text-ivory'}`}>{action.ctaLabel}</button>
   </article>
 }
 
@@ -118,7 +123,6 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onUpdateAirlinePre
   const interviewRecommendation=buildHomeInterviewRecommendation({attempts:interviewAttempts,targetAirlineId,hasPublishedAirlineContext})
   const drillPlan=buildHomeDrillPlan(interviewRecommendation.topic)
   const resumableSession=findResumableSession(interviewSessions)
-  const recentCompletedSessions=interviewSessions.filter(item=>item.status==='completed').sort((a,b)=>(b.completedAt??b.startedAt).localeCompare(a.completedAt??a.startedAt)).slice(0,3)
   const mockAttemptIds=new Set(interviewSessions.flatMap(session=>session.attemptIds))
   const singleInterviewHistory=sortSingleInterviewHistory(interviewAttempts.filter(attempt=>!mockAttemptIds.has(attempt.id)))
   const experienceCoverage=getExperienceCoverage()
@@ -150,6 +154,20 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onUpdateAirlinePre
   const latestWeakness=adaptiveWeaknesses.find(item=>item.state!=='resolved')
   const homeRealState=buildHomeRealState({diagnosis,activities:learningActivities,weeklyPracticeCount:weeklySummary.activityCount,upcoming:upcomingApplications[0],coachMessage:latestWeakness?.explanation??(learningActivities.length?'최근 완료한 연습이 학습 기록에 반영됐습니다. 다음 추천 훈련을 이어가 보세요.':undefined),coachOccurredAt:latestWeakness?.latestObservedAt,coachSource:latestWeakness?'연습 분석':undefined})
   const homePresentation=deriveHomePresentationModel({plan:dailyPlan,weeklyCompleted:allConfirmedTodayTasks.filter(task=>completedWeeklyTaskIds.has(task.id)).length,weeklyTotal:allConfirmedTodayTasks.length,activityCount:weeklySummary.activityCount,streakDays:homeRealState.streakDays})
+  // Home V2 derived state. Everything below is read from the feature repositories the user already wrote to;
+  // the Home stores no progress of its own and never derives a readiness score.
+  const primaryAirlineSelection=onboardingAnswers?.primaryAirline&&!['custom_airline','undecided_airline'].includes(onboardingAnswers.primaryAirline.id)?onboardingAnswers.primaryAirline:undefined
+  const preparationJourney=useMemo(()=>{
+    if(!primaryAirlineSelection)return null
+    const airlineId=primaryAirlineSelection.id
+    const stored=airlineTargetingRepository.load().questions.filter(item=>item.airlineId===airlineId)
+    const questions=[...getSourceBackedWorkspaceQuestions(airlineId),...stored].filter((item,index,all)=>all.findIndex(candidate=>candidate.id===item.id)===index)
+    return buildAirlineJourneyState({airlineId,companyViewedAt:airlineJourneyViewRepository.viewedAt(airlineId),questions,answers:listAnswersByAirline(airlineId),workDrafts:listWorkDrafts(),attempts:interviewAttempts,selfIntroductions:loadSelfIntroductionAttempts(),sessions:interviewSessions,singleResume:singleInterviewResume})
+  },[primaryAirlineSelection?.id,interviewAttempts,interviewSessions,singleInterviewResume,usageRevision,experienceRevision])
+  const competencyCompleted=useMemo(()=>competencyAssessmentRepository.load().history.length>0,[learningRevision])
+  const preparationHome=buildPreparationHomeModel({primaryAirline:primaryAirlineSelection?{id:primaryAirlineSelection.id,name:primaryAirlineSelection.name}:null,journey:preparationJourney,dailyPlan,upcomingApplications,activities:learningActivities,competencyCompleted})
+  function startPreparationAction(action:PreparationHomeAction){startDailyAction({id:action.id,dedupeKey:action.id,type:action.resume?'resume':'fallback',title:action.title,description:action.description,reason:action.reason,priority:0,target:action.target,source:'airline_target',resume:action.resume})}
+  function openPreparationTarget(target:DailyActionCandidate['target']){startDailyAction({id:`quick:${target.kind}`,dedupeKey:`quick:${target.kind}`,type:'fallback',title:'',description:'',reason:'',priority:0,target,source:'airline_target',resume:false})}
 
   function toggleTask(id: string) {
     setTasks((prev) =>
@@ -224,24 +242,52 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onUpdateAirlinePre
         {activeNav === 'interview'&&!interviewCategory&&<InterviewPracticeQueuePanel onStartQuestion={startInterviewQuestion} onStartQueued={(question,item)=>startInterviewQuestion(question,undefined,undefined,item.airlineId,item.id)}/>}
 
         {activeNav === 'interview' ? (interviewCategory?<AirlineInterviewQuestionList category={interviewCategory} targetAirlineId={diagnosis?.primaryAirline} onBack={()=>setInterviewCategory(null)} onStart={startInterviewQuestion}/>:<>{singleInterviewResume&&<section className="px-5 pt-4"><div className="rounded-2xl border border-gold/40 bg-card p-4"><strong className="text-sm text-navy">진행 중인 단일 면접 연습이 있습니다.</strong><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={resumeSingleInterview} className="min-h-11 rounded-xl bg-navy text-sm font-bold text-ivory">이어서 연습</button><button type="button" onClick={()=>singleInterviewResumeRepository.clear()} className="min-h-11 rounded-xl border border-border text-sm font-bold text-navy">연습 종료</button></div>{invalidResume&&<p className="mt-2 text-xs text-coral">이 연습 질문을 더 이상 사용할 수 없습니다. 연습을 종료하고 질문을 다시 선택해 주세요.</p>}</div></section>}<div className="px-5 pt-4"><button onClick={()=>setMockInterviewOpen(true)} className="h-12 w-full rounded-2xl bg-navy text-sm font-bold text-ivory">모의면접 시작</button></div><MockInterviewSessionHistory onStart={()=>setMockInterviewOpen(true)} onResume={(session)=>{const question=interviewQuestionById.get(session.questionIds[session.currentQuestionIndex]);if(question){setMockSession(session);setPracticeConfig({question,attemptType:'first',targetAirlineId:session.airlineId})}}} onView={(session)=>{setMockSession(session);setMockReport(session)}}/><InterviewPracticeHome attempts={singleInterviewHistory} onSelectCategory={setInterviewCategory} onStartQuestion={startInterviewQuestion} onOpenExperience={()=>setTrainingView('experience-library')} onViewAttempt={setSelectedInterviewResult} onRetakeAttempt={retakeSingleInterview}/></>) : activeNav === 'my' ? <main className="space-y-4 px-5 pb-8 pt-6"><AccountSummary onLogin={onLogin}/><section className="rounded-3xl border border-border bg-card p-6"><span className="eyebrow text-muted-foreground">MY PROFILE</span><h2 className="mt-3 text-xl font-bold text-navy">나의 준비 설정</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">목표와 진단 답변을 다시 확인하고 맞춤 루틴을 조정할 수 있어요.</p><button type="button" onClick={onEditDiagnosis} className="mt-6 h-12 w-full rounded-2xl border border-navy font-semibold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">진단 다시 하기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">지원 현황</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">지원 상태, 마감일과 면접 일정을 관리하세요.</p><button type="button" onClick={()=>setTrainingView('application-tracker')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">지원 일정 보기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">주간 리포트</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">실제 학습 기록과 역량 변화, 다음 주 추천 계획을 확인하세요.</p><button type="button" onClick={()=>setTrainingView('weekly-report')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">주간 리포트 보기</button></section><section className="rounded-3xl border border-border bg-card p-6"><h2 className="text-lg font-bold text-navy">나의 경험 저장소</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">저장한 경험은 여러 면접 질문에서 다시 활용할 수 있어요.</p><button type="button" onClick={()=>setTrainingView('experience-library')} className="mt-5 h-11 w-full rounded-xl bg-navy font-bold text-ivory">경험 저장소 열기</button></section></main> : <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-5 pb-8 pt-6 md:px-8 xl:grid xl:grid-cols-12 xl:items-start xl:gap-5 xl:px-10">
-          <section aria-labelledby="daily-plan-heading" className="grid gap-3 xl:col-span-12 xl:grid-cols-12">
-            <h1 id="daily-plan-heading" className="sr-only">오늘 할 일</h1>
-            <div className="xl:col-span-7"><DailyActionCard action={homePresentation.primary} primary onStart={()=>startDailyAction(homePresentation.primary)}/></div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:col-span-5">
-              {homePresentation.resume?<div className="sm:col-span-2"><DailyActionCard action={homePresentation.resume} onStart={()=>startDailyAction(homePresentation.resume!)}/></div>:null}
-              {homePresentation.secondary.map(action=><DailyActionCard key={action.id} action={action} onStart={()=>startDailyAction(action)}/>)}
+          <section aria-labelledby="preparation-home-heading" className="grid gap-3 xl:col-span-12 xl:grid-cols-12">
+            <h1 id="preparation-home-heading" className="sr-only">오늘의 준비</h1>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 xl:col-span-12" data-testid="preparation-target">
+              <div className="min-w-0">
+                <span className="eyebrow text-gold">AIRLINE TARGET</span>
+                <strong className="mt-1 block truncate text-base font-bold text-navy">{preparationHome.target.label}</strong>
+                {preparationHome.target.recruitmentPeriodLabel?<span className="mt-0.5 block text-xs text-muted-foreground">{preparationHome.target.recruitmentPeriodLabel}</span>:null}
+              </div>
+              <button type="button" onClick={()=>startDailyAction({id:'target',dedupeKey:'target',type:'fallback',title:'',description:'',reason:'',priority:0,target:{kind:'airline_workspace',airlineId:preparationHome.target.airlineId??''},source:'airline_target',resume:false})} className="min-h-11 shrink-0 rounded-xl border border-navy px-4 text-sm font-bold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{preparationHome.target.ctaLabel}</button>
             </div>
+            {preparationHome.todayAction?<div className="xl:col-span-7"><PreparationActionCard action={preparationHome.todayAction} primary onStart={()=>startPreparationAction(preparationHome.todayAction!)}/></div>:null}
+            <div className="grid gap-3 xl:col-span-5">
+              {preparationHome.continueAction?<PreparationActionCard action={preparationHome.continueAction} onStart={()=>startPreparationAction(preparationHome.continueAction!)}/>:null}
+              {preparationHome.airlineNextAction?<PreparationActionCard action={preparationHome.airlineNextAction} onStart={()=>startPreparationAction(preparationHome.airlineNextAction!)}/>:null}
+            </div>
+          </section>
+          <section aria-labelledby="preparation-summary-heading" className="rounded-2xl border border-border bg-card p-4 xl:col-span-8">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="preparation-summary-heading" className="text-base font-bold text-navy">{onboardingKo.preparationHome.summaryTitle}</h2>
+              <span className="text-xs text-muted-foreground">{preparationHome.applicationProgress.label} {preparationHome.applicationProgress.value} · {preparationHome.applicationProgress.caption}</span>
+            </div>
+            <dl className="mt-3 flex flex-wrap gap-2" data-testid="preparation-summary">
+              {preparationHome.summary.map(item=><div key={item.key} className="min-w-[88px] flex-1 rounded-xl bg-secondary/60 px-3 py-2"><dt className="text-[11px] text-muted-foreground">{item.label}</dt><dd className="mt-0.5 text-sm font-bold text-navy">{item.value}</dd></div>)}
+            </dl>
+            {preparationHome.gaps.length?<div className="mt-3"><p className="text-xs font-semibold text-muted-foreground">{onboardingKo.preparationHome.gapsTitle}</p><ul className="mt-2 flex flex-wrap gap-2" data-testid="preparation-gaps">{preparationHome.gaps.map(gap=><li key={gap.key} className="rounded-full border border-border px-3 py-1 text-xs text-midnight">{gap.label}</li>)}</ul></div>:null}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-4 xl:col-span-4">
+            <h2 className="text-base font-bold text-navy">{onboardingKo.preparationHome.deadlineTitle}</h2>
+            {preparationHome.deadline?<button type="button" onClick={()=>setTrainingView('application-tracker')} className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-secondary/60 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"><span className="min-w-0"><strong className="block truncate text-sm text-navy">{preparationHome.deadline.airlineName}</strong><span className="mt-0.5 block text-xs text-muted-foreground">{preparationHome.deadline.kindLabel} · {new Date(`${preparationHome.deadline.date.slice(0,10)}T00:00:00`).toLocaleDateString('ko-KR')}</span></span><strong className="shrink-0 text-base text-navy">{preparationHome.deadline.dday}</strong></button>:<p className="mt-3 text-sm text-muted-foreground">{onboardingKo.preparationHome.deadlineEmpty}</p>}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-4 xl:col-span-8">
+            <h2 className="text-base font-bold text-navy">{onboardingKo.preparationHome.recentTitle}</h2>
+            {preparationHome.recentActivity.length?<ul className="mt-3 space-y-2" data-testid="preparation-recent">{preparationHome.recentActivity.map(item=><li key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-xs"><span className="min-w-0 truncate text-midnight">{item.fromTargetAirline&&preparationHome.target.airlineName?`${preparationHome.target.airlineName} · `:''}{item.label}</span><time className="shrink-0 text-muted-foreground">{new Date(item.occurredAt).toLocaleDateString('ko-KR')}</time></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">{onboardingKo.preparationHome.recentEmpty}</p>}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-4 xl:col-span-4">
+            <h2 className="text-base font-bold text-navy">{onboardingKo.preparationHome.quickTitle}</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2" data-testid="preparation-quick-actions">
+              {preparationHome.quickActions.map(item=><button key={item.key} type="button" onClick={()=>openPreparationTarget(item.target)} className="min-h-11 rounded-xl border border-border px-3 text-sm font-bold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{item.label}</button>)}
+            </div>
+            <button type="button" onClick={()=>setTrainingView('competency-assessment')} className="mt-2 min-h-11 w-full rounded-xl text-sm font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{preparationHome.competencyAction.label} →</button>
           </section>
           <section aria-labelledby="weekly-progress-heading" className="grid gap-3 md:grid-cols-2 xl:col-span-12">
             <div className="rounded-2xl border border-border bg-card p-4"><span className="eyebrow text-muted-foreground">THIS WEEK</span><h2 id="weekly-progress-heading" className="mt-1 text-base font-bold text-navy">이번 주 진행</h2>{homePresentation.weeklyProgress?<p className="mt-3 text-sm text-midnight">주간 루틴 <strong>{homePresentation.weeklyProgress.completed}/{homePresentation.weeklyProgress.total}</strong> 완료</p>:<p className="mt-3 text-sm text-muted-foreground">확정된 주간 루틴이 없습니다.</p>}</div>
             <div className="rounded-2xl border border-border bg-card p-4"><span className="eyebrow text-muted-foreground">LEARNING ACTIVITY</span><h2 className="mt-1 text-base font-bold text-navy">학습 활동</h2><p className="mt-3 text-sm text-midnight">이번 주 실제 활동 <strong>{homePresentation.activityCount}회</strong> · 연속 기록 <strong>{homePresentation.streakLabel}</strong></p></div>
           </section>
           {latestWeakness?<section className="rounded-3xl border border-gold/30 bg-card p-5 xl:col-span-8"><span className="eyebrow text-gold">COACH SIGNAL</span><h2 className="mt-2 text-lg font-bold text-navy">최근 약점 · {latestWeakness.title}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{latestWeakness.explanation}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(latestWeakness.latestObservedAt).toLocaleDateString('ko-KR')} · 실제 연습 분석</p></section>:null}
-          {upcomingApplications.length?<section className="rounded-3xl border border-border bg-card p-5 xl:col-span-4">
-            <div className="flex items-start justify-between gap-3"><div><span className="eyebrow text-gold">APPLICATIONS</span><h2 className="mt-2 text-lg font-bold text-navy">다가오는 지원 일정</h2></div><button type="button" onClick={()=>setTrainingView('application-tracker')} className="text-sm font-bold text-navy">전체 보기 →</button></div>
-            <div className="mt-4 space-y-2">{upcomingApplications.slice(0,1).map(({application,importantDate})=><button type="button" key={application.id} onClick={()=>setTrainingView('application-tracker')} className="flex w-full items-center justify-between rounded-2xl bg-secondary/60 p-3 text-left"><span><strong className="block text-sm text-navy">{application.airlineNameSnapshot}</strong><span className="mt-1 block text-xs text-muted-foreground">{importantDate.kind==='interview'?'면접':'지원 마감'} · {new Date(`${importantDate.date.slice(0,10)}T00:00:00`).toLocaleDateString('ko-KR')}</span></span><strong className="text-base text-navy">{importantDate.dday}</strong></button>)}</div>
-            {upcomingApplications.filter(item=>item.importantDate.days<=7).length?<p className="mt-3 text-xs text-muted-foreground">이번 주 지원 일정 {upcomingApplications.filter(item=>item.importantDate.days<=7).length}개</p>:null}
-          </section>:null}
           <section className="rounded-3xl border border-border bg-card p-5 xl:col-span-8">
             <span className="eyebrow text-muted-foreground">TODAY'S EXPERIENCE</span>
             <h2 className="mt-2 text-lg font-bold text-navy">오늘의 경험 준비</h2>
@@ -264,14 +310,6 @@ export function HomeDashboard({ diagnosis, onboardingAnswers, onUpdateAirlinePre
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{experienceCoverage.missingAreas.length ? `다음에 준비하면 좋은 경험: ${experienceCoverage.missingAreas.slice(0, 2).map(tag=>onboardingKo.experienceLibrary.competencies[tag]).join(' · ')}` : '핵심 역량이 균형 있게 준비되어 있어요.'}</p>
             <button type="button" onClick={()=>setTrainingView('experience-library')} className="mt-4 h-11 w-full rounded-xl border border-navy text-sm font-bold text-navy">경험으로 면접 연습</button>
           </section>
-          <button type="button" onClick={()=>{setSelfIntroductionChallengeTarget(60);setTrainingView('self-introduction')}} className="-mt-3 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left xl:col-span-4 xl:mt-0 xl:min-h-[116px]"><span><strong className="block text-sm text-navy">오늘 60초 자기소개 연습</strong><span className="mt-1 block text-xs text-muted-foreground">시간과 답변 구조를 함께 점검해보세요.</span></span><span className="text-sm font-bold text-gold">시작 →</span></button>
-
-          <button type="button" onClick={()=>setTrainingView('competency-assessment')} className="flex min-h-[116px] items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left xl:col-span-4"><span><span className="eyebrow text-gold">PRACTICE PROFILE</span><strong className="mt-2 block text-sm text-navy">승무원 역량검사</strong><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">상황판단과 영상답변으로 연습 방향을 확인해보세요.</span></span><span className="text-sm font-bold text-gold">열기 →</span></button>
-
-          <button type="button" onClick={()=>setTrainingView('airline-targeting')} className="flex min-h-[116px] items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left xl:col-span-4"><span><span className="eyebrow text-gold">AIRLINE TARGET</span><strong className="mt-2 block text-sm text-navy">{onboardingAnswers?.primaryAirline&&!['custom_airline','undecided_airline'].includes(onboardingAnswers.primaryAirline.id)?`${onboardingAnswers.primaryAirline.name} 준비 계속`:'타겟 항공사'}</strong><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">회사 정보와 내 질문·답변·경험을 한곳에서 연결해요.</span></span><span className="text-sm font-bold text-gold">열기 →</span></button>
-
-          {recentCompletedSessions.length?<section className="rounded-3xl border border-border bg-card p-5 xl:col-span-12"><div className="flex items-center justify-between"><div><span className="eyebrow text-muted-foreground">RECENT</span><h2 className="mt-2 text-lg font-bold text-navy">최근 모의면접</h2></div><button type="button" onClick={()=>setActiveNav('interview')} className="text-sm font-bold text-navy">전체 보기 →</button></div><div className="mt-4 grid gap-3 md:grid-cols-3">{recentCompletedSessions.map(session=><article key={session.id} className="rounded-2xl bg-secondary/60 p-4"><strong className="text-sm text-navy">{session.mode==='ai_interviewer'?'적응형 면접':'모의면접'}</strong><p className="mt-1 text-xs text-muted-foreground">{session.questionIds.length}문항 · {new Date(session.completedAt??session.startedAt).toLocaleDateString('ko-KR')}</p><p className="mt-3 line-clamp-2 text-sm text-midnight">{session.sessionAnalysis?.improvements[0]??'완료한 답변 리포트를 확인해보세요.'}</p><button type="button" onClick={()=>{setMockSession(session);setMockReport(session)}} className="mt-3 text-sm font-bold text-navy">결과 보기</button></article>)}</div></section>:null}
-
           {diagnosis ? <div className="xl:col-span-4"><JourneyCard onStartTraining={() => setActiveNav('routine')} target={diagnosis.primaryAirline} score={readinessSnapshot.currentReadinessScore} nextGoal={trainingProgress.routineCompleted?'자기소개와 지원동기 다듬기':diagnosis.priorityAreas[0]?.title} /></div> : null}
 
           {/* Preparation overview */}
