@@ -10,6 +10,16 @@ type RoutineTaskCardProps = {
   onStart?: (id: string) => void
 }
 
+/**
+ * Routine row CTA. The icon stays small; only the hit area is held at 44x44 CSS px, so the row height
+ * and the card density are unchanged apart from the taller target.
+ */
+export const ROUTINE_TASK_CTA_CLASS =
+  'flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card'
+export const ROUTINE_TASK_CTA_DONE_CLASS = 'border border-border text-muted-foreground hover:text-navy'
+export const ROUTINE_TASK_CTA_ACTIVE_CLASS = 'gap-1 bg-coral px-4 text-sm font-semibold text-white hover:brightness-105'
+export const ROUTINE_TASK_CTA_TODO_CLASS = 'gap-1 bg-navy px-4 text-sm font-semibold text-ivory hover:brightness-110'
+
 export function RoutineTaskCard({ task, onToggle, onStart }: RoutineTaskCardProps) {
   const isDone = task.status === 'done'
   const isActive = task.status === 'in-progress'
@@ -58,12 +68,8 @@ export function RoutineTaskCard({ task, onToggle, onStart }: RoutineTaskCardProp
         onClick={() => onStart ? onStart(task.id) : onToggle?.(task.id)}
         aria-label={isDone ? `${task.name} 완료 취소` : `${task.name} 시작`}
         className={cn(
-          'flex h-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card',
-          isDone
-            ? 'w-9 border border-border text-muted-foreground hover:text-navy'
-            : isActive
-              ? 'gap-1 bg-coral px-4 text-sm font-semibold text-white hover:brightness-105'
-              : 'gap-1 bg-navy px-4 text-sm font-semibold text-ivory hover:brightness-110',
+          ROUTINE_TASK_CTA_CLASS,
+          isDone ? ROUTINE_TASK_CTA_DONE_CLASS : isActive ? ROUTINE_TASK_CTA_ACTIVE_CLASS : ROUTINE_TASK_CTA_TODO_CLASS,
         )}
       >
         {isDone ? (

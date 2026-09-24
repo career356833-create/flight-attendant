@@ -4,6 +4,7 @@ import { buildHomeRealState, calculateLearningStreak } from './home-real-state'
 import type { LearningActivity } from './learning-analytics-service'
 import { calculateApplicationDday } from './application-tracker'
 import { readFileSync } from 'node:fs'
+import { ROUTINE_TASK_CTA_ACTIVE_CLASS, ROUTINE_TASK_CTA_CLASS, ROUTINE_TASK_CTA_DONE_CLASS, ROUTINE_TASK_CTA_TODO_CLASS } from '@/components/routine-task-card'
 
 const activity = (occurredAt: string, sourceEntityType: LearningActivity['sourceEntityType'] = 'interview_attempt'): LearningActivity => ({ id: occurredAt, type: 'interview_attempt_completed', occurredAt, title: '면접 답변', sourceEntityType, relatedCapabilityKeys: ['interview_communication'] })
 const today = new Date(2026, 8, 2, 12)
@@ -105,4 +106,47 @@ test('production Home components do not import mock-data', () => {
 test('production Home components contain none of the known fabricated values', () => {
   const source = ['components/home-dashboard.tsx', 'components/secondary-stats.tsx', 'components/coach-feedback-card.tsx'].map(file => readFileSync(file, 'utf8')).join('\n')
   for (const value of ['12일', '9/15', 'D-4', '어제 · 상황 대처 훈련']) assert.equal(source.includes(value), false, value)
+})
+
+test('routine task CTA keeps a 44px minimum touch target in every state', () => {
+  const base = ROUTINE_TASK_CTA_CLASS.split(' ')
+  assert.equal(base.includes('min-h-11'), true)
+  assert.equal(base.includes('min-w-11'), true)
+  for (const state of [ROUTINE_TASK_CTA_DONE_CLASS, ROUTINE_TASK_CTA_ACTIVE_CLASS, ROUTINE_TASK_CTA_TODO_CLASS]) {
+    const classes = `${ROUTINE_TASK_CTA_CLASS} ${state}`.split(' ')
+    assert.equal(classes.includes('min-h-11'), true)
+    assert.equal(classes.includes('min-w-11'), true)
+  }
+})
+
+test('no routine CTA state pins the old 36px box', () => {
+  for (const state of [ROUTINE_TASK_CTA_CLASS, ROUTINE_TASK_CTA_DONE_CLASS, ROUTINE_TASK_CTA_ACTIVE_CLASS, ROUTINE_TASK_CTA_TODO_CLASS]) {
+    const classes = state.split(' ')
+    for (const fixed of ['h-9', 'w-9', 'h-8', 'w-8', 'h-10', 'w-10']) assert.equal(classes.includes(fixed), false, `${fixed} in ${state}`)
+  }
+})
+
+test('the routine CTA stays a keyboard-operable native button with an accessible name', () => {
+  const source = readFileSync('components/routine-task-card.tsx', 'utf8')
+  assert.match(source, /<button\s/)
+  assert.match(source, /type="button"/)
+  assert.match(source, /aria-label=\{isDone \? `\$\{task\.name\} 완료 취소` : `\$\{task\.name\} 시작`\}/)
+  assert.match(source, /focus-visible:ring-2/)
+})
+
+test('the routine CTA action contract is unchanged', () => {
+  const source = readFileSync('components/routine-task-card.tsx', 'utf8')
+  assert.match(source, /onClick=\{\(\) => onStart \? onStart\(task\.id\) : onToggle\?\.\(task\.id\)\}/)
+})
+
+test('the icon stays small while only the hit area grows', () => {
+  const source = readFileSync('components/routine-task-card.tsx', 'utf8')
+  assert.match(source, /<Check className="h-4 w-4"/)
+  assert.match(source, /<Play className="h-3\.5 w-3\.5 fill-current"/)
+})
+
+test('the routine row keeps its existing density classes', () => {
+  const source = readFileSync('components/routine-task-card.tsx', 'utf8')
+  assert.match(source, /rounded-2xl border bg-card p-4/)
+  assert.match(source, /flex h-9 w-9 shrink-0 items-center justify-center rounded-full/)
 })
