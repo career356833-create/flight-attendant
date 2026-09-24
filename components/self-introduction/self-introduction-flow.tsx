@@ -33,6 +33,9 @@ import { actualTranscript, transcriptionIntegrity, unavailableSelfIntroductionAn
 import { runPronunciationAnalysis } from "@/lib/ai/pronunciation-flow";
 import { DEFAULT_SELF_INTRODUCTION_LANGUAGE, selfIntroductionLanguageHint, selfIntroductionPrompt, type SelfIntroductionLanguage } from "@/lib/self-introduction-language";
 import { sameConditionRetake, sortSelfIntroductionHistory } from "@/lib/self-introduction-history";
+import { buildSelfIntroTrainingLoopModel, type TrainingLoopAction } from "@/lib/training-loop";
+import { loadInterviewSessions } from "@/lib/mock-interview-session";
+import { listApplicationAnswers } from "@/lib/application-answer-repository";
 import { resolveSelfIntroductionResultNavigation } from "@/lib/self-introduction-navigation";
 import { useMicrophoneCheck } from "@/components/interview-practice/use-microphone-check";
 import { saveSelfIntroductionAudioSafely } from "@/lib/self-introduction-audio-recovery";
@@ -64,6 +67,7 @@ export function SelfIntroductionFlow({
   onWeeklyReturn,
   assessmentVideo,
   onAssessmentVideoComplete,
+  onTrainingLoopNext,
 }: {
   targetAirlineId?: string;
   onExit: () => void;
@@ -73,6 +77,7 @@ export function SelfIntroductionFlow({
   onWeeklyReturn?: () => void;
   assessmentVideo?: { id: string; prompt: string; recommendedSeconds: 30 | 60 | 90 };
   onAssessmentVideoComplete?: (attempt: SelfIntroductionAttempt) => void;
+  onTrainingLoopNext?: (action: TrainingLoopAction) => void;
 }) {
   const [step, setStep] = useState<SelfIntroductionStep>("intro");
   const mic = useMicrophoneCheck();
@@ -579,6 +584,18 @@ export function SelfIntroductionFlow({
         onSelectHistory={revisitHistory}
         onRetakeSameConditions={() => retakeHistory(attempt)}
         isHistoryRevisit={Boolean(selectedHistoryAttemptId)}
+        trainingLoop={buildSelfIntroTrainingLoopModel({
+          attempt,
+          attempts: loadSelfIntroductionAttempts().filter(item => item.id !== attempt.id),
+          sessions: loadInterviewSessions(),
+          applicationAnswerCount: listApplicationAnswers().length,
+        })}
+        onTrainingLoopAction={action => {
+          // A retake restarts the very same exercise through the existing same-condition path, so the
+          // 30/60/90 target, the practice language and the attempt lineage are all preserved.
+          if (action.kind === "retake" || action.kind === "focused_retake") { retakeHistory(attempt); return; }
+          onTrainingLoopNext?.(action);
+        }}
       />
     );
   return null;

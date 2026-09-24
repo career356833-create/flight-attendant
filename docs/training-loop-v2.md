@@ -88,6 +88,31 @@ Queue and favorite state are reported, never mutated. An airline question keeps 
 
 Nonverbal results stay a separate coaching area. They are not summed into any competency or hiring score and do not enter the loop's strengths or improvement points.
 
+## Self introduction (phase 2)
+
+The self-introduction result uses the **same contract and the same `TrainingLoopPanel`** — no parallel loop engine and no duplicated component. `buildSelfIntroTrainingLoopModel()` sits beside the interview builder in `lib/training-loop.ts` and returns the identical `TrainingLoopModel`.
+
+**Exercise identity.** A self introduction has no question, so `questionId` stays `undefined` — none is invented. The exercise is identified by its **30/60/90 target** and **practice language**, carried on the context as `selfIntroMode` and `language`. Previous attempts are matched on target seconds **and** language **and** airline, so a 30-second attempt is never compared with a 90-second one and a Korean attempt never with an English one.
+
+**Evidence.** Strengths come from `analysis.challenge.strengths` plus `analysis.bestPoint`; improvements from `analysis.challenge.improvements` plus `analysis.firstImprovement` — all gated by the same evidence modes. Timing comes from `analysis.challenge.timing` and is stated factually: *목표 60초 · 실제 41초입니다.* It appears only when the analyzer itself marked the attempt short or long, and never as a score.
+
+**Retake.** *같은 자기소개 다시 연습* routes through the flow's existing `sameConditionRetake`, so `previousAttemptId`, the 30/60/90 target, the language and the airline all survive. Measured in the browser: attempt 1 → attempt 2 with `previousAttemptId` set, same language, comparison `답변 시간 11초 → 13초`.
+
+**Next ladder** (the just-practised self introduction is never proposed):
+
+| rule | condition | next |
+|---|---|---|
+| A | no completed mock | 모의면접 |
+| B | no saved application answer | 지원서 답변 |
+| C | the target airline journey has a next step | that journey action |
+| D | otherwise | the existing daily plan target |
+
+**Integration.** Completion still flows through the existing engines; the loop adds no counter. Verified in production-like local QA: a Jin Air self introduction moved Home from `자기소개 0회` to `1회`, added *Jin Air · 자기소개 완료* to recent activity, dropped the self-introduction gap and advanced the airline next action.
+
+Mock and application results are deliberately **not** connected yet.
+
 ## Tests
 
 `lib/training-loop.test.ts` — 34 deterministic tests: fresh user, the four training types, strength/improvement caps and ordering, the no-improvement wording, retake lineage, airline/question/provenance preservation, the audio-only and text-practice boundaries, all six next-action rules, the repeat guard, comparison scoping (same question, same airline, different id), history cap and order, incomplete-attempt handling, favorite/queue reporting, the readiness/probability/trait guard, focused retake, summary counts and determinism.
+
+`lib/self-intro-training-loop.test.ts` — 30 deterministic tests: the shared model for a self introduction, all three duration modes, both languages, same-mode/same-language comparison and the exclusions, generic versus airline context, retake lineage, the audio-only and text boundaries, strength/improvement caps, the trait and readiness guard, the factual duration pair, focused retake, the no-repeat rule, all four next-action rules, history cap, incomplete handling, cross-airline isolation, determinism and a Single Interview regression guard.

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TrainingLoopPanel } from "@/components/interview-practice/interview-practice-components";
+import type { TrainingLoopAction, TrainingLoopModel } from "@/lib/training-loop";
 import {
   Check,
   ChevronLeft,
@@ -728,6 +730,8 @@ export function SelfIntroductionResult({
   onRetakeSameConditions,
   isHistoryRevisit = false,
   returnLabel,
+  trainingLoop,
+  onTrainingLoopAction,
 }: {
   attempt: SelfIntroductionAttempt;
   audioSaveWarning?: string;
@@ -739,6 +743,8 @@ export function SelfIntroductionResult({
   onRetakeSameConditions?: () => void;
   isHistoryRevisit?: boolean;
   returnLabel?: string;
+  trainingLoop?: TrainingLoopModel;
+  onTrainingLoopAction?: (action: TrainingLoopAction) => void;
 }) {
   const a = attempt.analysis;
   if (attempt.transcriptIntegrity && !attempt.transcriptIntegrity.isActualTranscription) return (
@@ -751,6 +757,7 @@ export function SelfIntroductionResult({
       <NonverbalSignalCard result={attempt.nonverbalSignal} locale={attempt.practiceLanguage} />
       <LocalAttemptAudio key={attempt.id} attemptId={attempt.id}/>
       <button className="mt-5 h-12 w-full rounded-xl bg-coral text-sm font-bold text-white" onClick={()=>onRetry('repeat')}>다시 연습하기</button>
+      {trainingLoop ? <TrainingLoopPanel loop={trainingLoop} onAction={action => onTrainingLoopAction?.(action)} /> : null}
       <div className="mt-7"><AttemptHistory attempts={history} onSelect={onSelectHistory} selectedAttemptId={attempt.id}/></div>
     </DiagnosisFrame>
   );
@@ -841,6 +848,7 @@ export function SelfIntroductionResult({
       </div>
       </aside>
       </div>
+      {trainingLoop ? <TrainingLoopPanel loop={trainingLoop} onAction={action => onTrainingLoopAction?.(action)} /> : null}
       <div className="mt-7">
         <AttemptHistory attempts={history} onSelect={onSelectHistory} selectedAttemptId={attempt.id} />
       </div>
