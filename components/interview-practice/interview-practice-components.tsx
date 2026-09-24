@@ -9,6 +9,34 @@ import { DiagnosisFrame } from '@/components/self-introduction/self-introduction
 import { getPracticeQuestionsForAirline } from '@/lib/airline-knowledge-repository'
 import { interviewPracticeQueueRepository, practiceQueueReasonLabel, recommendedQueueReason, resolveInterviewQuestion, type InterviewPracticeQueueItem, type PracticeQueueReason } from '@/lib/interview-practice-queue'
 import { AnalysisProvenanceHint } from '@/components/analysis-provenance-hint'
+import { NO_IMPROVEMENT_MESSAGE, type TrainingLoopAction, type TrainingLoopModel } from '@/lib/training-loop'
+
+/**
+ * Compact training-loop block under a result: what this practice showed, what to repeat and what is next.
+ * Every value comes from the derived model; this component renders and never computes.
+ */
+export function TrainingLoopPanel({loop,onAction}:{loop:TrainingLoopModel;onAction:(action:TrainingLoopAction)=>void}){
+  // The caller binds the attempt; this panel only reports which action the user chose.
+  if(!loop.completed)return null
+  return <section className="mx-auto mt-4 max-w-[390px] px-4 pb-5" aria-labelledby="training-loop-heading" data-testid="training-loop">
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <h2 id="training-loop-heading" className="text-base font-bold text-navy">이번 연습</h2>
+      <p className="mt-1 text-xs text-muted-foreground" data-testid="training-loop-summary">{loop.summary.completedLabel} · 보완 {loop.summary.improvementCount}개{loop.summary.previousAttemptCount?` · 이전 시도 ${loop.summary.previousAttemptCount}회`:''}</p>
+      {loop.strengths.length?<div className="mt-3"><p className="text-xs font-semibold text-muted-foreground">잘한 점</p><ul className="mt-1.5 space-y-1" data-testid="training-loop-strengths">{loop.strengths.map(point=><li key={point.key} className="text-sm leading-relaxed text-midnight">· {point.message}</li>)}</ul></div>:null}
+      <div className="mt-3">
+        <p className="text-xs font-semibold text-muted-foreground">다음에 보완할 점</p>
+        {loop.improvementPoints.length?<ul className="mt-1.5 space-y-1" data-testid="training-loop-improvements">{loop.improvementPoints.map(point=><li key={point.key} className="text-sm leading-relaxed text-midnight">· {point.message}</li>)}</ul>:<p className="mt-1.5 text-sm leading-relaxed text-muted-foreground" data-testid="training-loop-no-improvement">{NO_IMPROVEMENT_MESSAGE}</p>}
+      </div>
+      {loop.comparison?<div className="mt-3 rounded-xl bg-secondary/60 p-3" data-testid="training-loop-comparison"><p className="text-xs font-semibold text-navy">이전 시도와 비교</p><dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{loop.comparison.deltas.map(delta=><div key={delta.key} className="text-xs text-midnight"><dt className="inline text-muted-foreground">{delta.label} </dt><dd className="inline font-semibold">{delta.before} → {delta.after}</dd></div>)}</dl></div>:null}
+      <div className="mt-4 space-y-2">
+        {loop.retakeAction?<button type="button" onClick={()=>onAction(loop.retakeAction!)} data-testid="training-loop-retake" className="min-h-11 w-full rounded-xl bg-navy text-sm font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{loop.retakeAction.label}</button>:null}
+        {loop.focusedRetakeAction?<button type="button" onClick={()=>onAction(loop.focusedRetakeAction!)} data-testid="training-loop-focused" className="min-h-11 w-full rounded-xl border border-navy text-sm font-bold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">{loop.focusedRetakeAction.label}</button>:null}
+        {loop.nextAction?<button type="button" onClick={()=>onAction(loop.nextAction!)} data-testid="training-loop-next" className="min-h-11 w-full rounded-xl border border-border text-sm font-bold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">다음 연습 · {loop.nextAction.label}</button>:null}
+      </div>
+      {loop.nextAction?<p className="mt-2 text-xs leading-relaxed text-muted-foreground">{loop.nextAction.reason}</p>:null}
+    </div>
+  </section>
+}
 
 const card='rounded-2xl border border-border bg-card p-4'
 const primary='h-12 rounded-xl bg-navy px-4 text-sm font-bold text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold'
