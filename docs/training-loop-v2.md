@@ -154,3 +154,19 @@ Application results are deliberately **not** connected yet; the loop only offers
 `lib/self-intro-training-loop.test.ts` — 30 deterministic tests: the shared model for a self introduction, all three duration modes, both languages, same-mode/same-language comparison and the exclusions, generic versus airline context, retake lineage, the audio-only and text boundaries, strength/improvement caps, the trait and readiness guard, the factual duration pair, focused retake, the no-repeat rule, all four next-action rules, history cap, incomplete handling, cross-airline isolation, determinism and a Single Interview regression guard.
 
 `lib/mock-training-loop.test.ts` — 33 deterministic tests: the shared model for a mock, completion integrity (unfinished and first-question-only), generic versus airline context, configuration identity and the comparison exclusions, strength/improvement caps, cross-question repeated issues, the audio-only and text boundaries, nonverbal separation, retake lineage, focused retake, the score/trait guard, completion and duration deltas, history cap, all five next-action rules, the no-repeat rule, session-not-question counting, follow-up exclusion, cross-airline isolation, resume boundary, provenance, determinism, and Single Interview / Self Introduction regression guards.
+
+## Mock session guard (phase 4)
+
+Inside a running mock session the **session owns the next step**, so a per-question result must not offer the single-question loop. `components/interview-practice/interview-practice-engine.tsx` renders `TrainingLoopPanel` only when `buildTrainingLoop && !sessionAction`; `sessionAction` is present exactly while a mock session is in progress, so the same result screen is a standalone practice when it is absent. No new flag, no new prop and no change to mock session logic.
+
+What each screen shows:
+
+| screen | loop panel | session controls |
+|---|---|---|
+| standalone single interview result | `이번 연습` with `같은 질문 다시 연습` / `다음 연습 · …` | — |
+| mock question result (session running) | none | `다음 질문` + `이 질문 다시 답하기` |
+| completed mock report | `이번 연습` with `같은 모의면접 다시 연습` / `다음 연습 · …` | `이 세션 다시 연습` |
+
+The guard is a render condition only: session progress, the per-question retry, attempt persistence, counting, Self Introduction and the mock report are untouched. Measured in local QA at 390px — standalone result panel present with 44px CTAs and attempt-2 comparison `답변 시간 16초 → 7초`; question 1–5 of a Quick 5 general mock showed `다음 질문` (48px) and `이 질문 다시 답하기` (44px) with zero `training-loop` nodes in the DOM; the finished session's report showed the mock panel with `같은 모의면접 다시 연습` and `다음 연습 · 지원서 답변 작성`. Horizontal overflow 0, console errors 0.
+
+`lib/mock-session-loop-guard.test.ts` — 8 deterministic tests: the render condition, the guard keying off the existing `sessionAction` prop instead of a new flag, the mock question keeping its session action and in-place retry, the mock report keeping its panel, the standalone retake and next ladder, the in-place standalone retake, session progress and mock counting untouched, and a Self Introduction regression guard covering both of its result branches.
