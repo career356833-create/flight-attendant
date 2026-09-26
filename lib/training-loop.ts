@@ -36,6 +36,13 @@ export type TrainingLoopContext = {
   /** Self-introduction only: the 30/60/90 target and the practice language identify the exercise. */
   selfIntroMode?: SelfIntroductionChallengeSeconds;
   language?: SelfIntroductionLanguage;
+  /** Mock only: the session is the unit of practice, never one of its questions. */
+  mockSessionId?: string;
+  mockConfigId?: string;
+  questionIds?: string[];
+  attemptIds?: string[];
+  completedQuestionCount?: number;
+  previousSessionId?: string;
 };
 
 export type TrainingLoopPoint = { key: string; message: string; source: "content_analysis" | "speech_metrics" | "audio_metrics" | "timing" };
@@ -478,6 +485,213 @@ export function buildSelfIntroTrainingLoopModel(input: SelfIntroTrainingLoopInpu
     retakeAction,
     focusedRetakeAction: focusPoint ? { kind: "focused_retake", label: "이 항목에 집중해서 다시 연습", reason: focusPoint.message, target: selfIntroTarget, focusKey: focusPoint.key } : undefined,
     nextAction: selfIntroNextAction(input, attempt),
+    favorited: false,
+    queued: false,
+    summary: { completedLabel: "완료", improvementCount: improvementPoints.length, previousAttemptCount: previous.length },
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Mock interview
+ *
+ * The unit of practice is the whole session, never one of its questions. A session counts as done
+ * only when the session itself completed — answering the first question does not finish a mock, and
+ * its question attempts are never counted as mock sessions.
+ * ------------------------------------------------------------------ */
+
+export type MockTrainingLoopInput = {
+  session?: InterviewSession | null;
+  sessions?: InterviewSession[];
+  attempts?: InterviewAttempt[];
+  selfIntroductions?: SelfIntroductionAttempt[];
+  applicationAnswerCount?: number;
+  queue?: InterviewPracticeQueueItem[];
+  journeyAction?: AirlineJourneyAction | null;
+  dailyFallback?: DailyActionTarget;
+  context?: Partial<TrainingLoopContext>;
+};
+
+/**
+ * The configuration that makes two mocks the same exercise: the session mode, the airline it was run
+ * for and how many questions it asked. Sessions with a different configuration are never compared.
+ */
+export function mockConfigId(session: InterviewSession): string {
+  return `${session.mode}:${session.airlineId ?? "generic"}:${session.questionIds.length}`;
+}
+
+/** A mock is finished only when the session itself completed. */
+export const isMockSessionComplete = (session: InterviewSession | null | undefined) => session?.status === "completed";
+
+const sessionAttempts = (session: InterviewSession, attempts: InterviewAttempt[]) =>
+  attempts.filter((item) => session.attemptIds.includes(item.id) && !item.isFollowUp);
+
+/** The strongest evidence any answer in the session actually carries. */
+export function mockEvidenceMode(session: InterviewSession, attempts: InterviewAttempt[]): TrainingEvidenceMode {
+  const rows = sessionAttempts(session, attempts);
+  if (!rows.length) return "text_practice";
+  if (rows.some((item) => trainingEvidenceMode(item) === "actual_audio")) return "actual_audio";
+  if (rows.some((item) => trainingEvidenceMode(item) === "audio_only")) return "audio_only";
+  if (rows.some((item) => trainingEvidenceMode(item) === "text_analysis")) return "text_analysis";
+  return "text_practice";
+}
+
+/** An issue seen in more than one question of the same session, reported once with its count. */
+export function repeatedMockIssues(session: InterviewSession, attempts: InterviewAttempt[]): Array<{ message: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const attempt of sessionAttempts(session, attempts)) {
+    for (const part of new Set(attempt.contentAnalysis?.structure?.missingParts ?? [])) {
+      const message = trimmed(part);
+      if (message) counts.set(message, (counts.get(message) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([message, count]) => ({ message, count }));
+}
+
+function mockStrengths(session: InterviewSession, mode: TrainingEvidenceMode): TrainingLoopPoint[] {
+  if (!transcriptEvidenceAllowed(mode)) return [];
+  return (session.sessionAnalysis?.strengths ?? [])
+    .map((value) => trimmed(value))
+    .filter(Boolean)
+    .slice(0, MAX_TRAINING_STRENGTHS)
+    .map((message, index) => ({ key: `mock-strength-${index}`, message, source: "content_analysis" as const }));
+}
+
+function mockImprovements(session: InterviewSession, attempts: InterviewAttempt[], mode: TrainingEvidenceMode): TrainingLoopPoint[] {
+  const rows: TrainingLoopPoint[] = [];
+  if (transcriptEvidenceAllowed(mode)) {
+    for (const issue of repeatedMockIssues(session, attempts)) {
+      rows.push({ key: `mock-repeated-${issue.message}`, message: `${issue.message}이(가) ${issue.count}개 문항에서 반복됐습니다.`, source: "content_analysis" });
+    }
+    for (const value of session.sessionAnalysis?.improvements ?? []) {
+      const message = trimmed(value);
+      if (message) rows.push({ key: `mock-content-${rows.length}`, message, source: "content_analysis" });
+    }
+  }
+  const answered = sessionAttempts(session, attempts).length;
+  if (session.questionIds.length && answered < session.questionIds.length) {
+    rows.push({ key: "mock-unanswered", message: `${session.questionIds.length}문항 중 ${answered}문항을 기록했습니다.`, source: "timing" });
+  }
+  if (audioEvidenceAllowed(mode)) {
+    const pauses = sessionAttempts(session, attempts).reduce((sum, item) => sum + (item.audioMetrics?.pauses?.longCount ?? 0), 0);
+    if (pauses >= 2) rows.push({ key: "mock-long-pause", message: `세션 전체에서 긴 쉼이 ${pauses}회 있었습니다.`, source: "audio_metrics" });
+  }
+  return rows.slice(0, MAX_TRAINING_IMPROVEMENTS);
+}
+
+/** Completed sessions of the same configuration, newest first. */
+export function previousMockSessionsFor(session: InterviewSession, sessions: InterviewSession[]): InterviewSession[] {
+  const config = mockConfigId(session);
+  return sessions
+    .filter((item) => item.id !== session.id && item.status === "completed" && mockConfigId(item) === config)
+    .sort((a, b) => time(b.completedAt ?? b.startedAt) - time(a.completedAt ?? a.startedAt) || a.id.localeCompare(b.id));
+}
+
+const sessionDuration = (session: InterviewSession, attempts: InterviewAttempt[]) =>
+  sessionAttempts(session, attempts).reduce((sum, item) => sum + (item.durationSeconds || 0), 0);
+
+function mockComparison(session: InterviewSession, previous: InterviewSession | undefined, attempts: InterviewAttempt[], mode: TrainingEvidenceMode): TrainingLoopComparison | undefined {
+  if (!previous) return undefined;
+  const previousMode = mockEvidenceMode(previous, attempts);
+  const both = (check: (value: TrainingEvidenceMode) => boolean) => check(mode) && check(previousMode);
+  const deltas: TrainingLoopDelta[] = [];
+  const beforeAnswered = sessionAttempts(previous, attempts).length, afterAnswered = sessionAttempts(session, attempts).length;
+  deltas.push({ key: "completed", label: "기록한 문항", before: `${beforeAnswered}/${previous.questionIds.length}`, after: `${afterAnswered}/${session.questionIds.length}` });
+  const beforeDuration = sessionDuration(previous, attempts), afterDuration = sessionDuration(session, attempts);
+  if (beforeDuration > 0 && afterDuration > 0) deltas.push({ key: "duration", label: "총 답변 시간", before: `${beforeDuration}초`, after: `${afterDuration}초` });
+  if (both((value) => value === "actual_audio")) {
+    const sum = (rows: InterviewAttempt[]) => rows.reduce((total, item) => total + (item.speechMetrics?.fillers?.totalCount ?? 0), 0);
+    deltas.push({ key: "filler", label: "추임새", before: `${sum(sessionAttempts(previous, attempts))}회`, after: `${sum(sessionAttempts(session, attempts))}회` });
+  }
+  if (both(audioEvidenceAllowed)) {
+    const sum = (rows: InterviewAttempt[]) => rows.reduce((total, item) => total + (item.audioMetrics?.pauses?.longCount ?? 0), 0);
+    deltas.push({ key: "long_pause", label: "긴 쉼", before: `${sum(sessionAttempts(previous, attempts))}회`, after: `${sum(sessionAttempts(session, attempts))}회` });
+  }
+  if (both(transcriptEvidenceAllowed)) {
+    const repeated = (item: InterviewSession) => repeatedMockIssues(item, attempts).length;
+    deltas.push({ key: "repeated", label: "반복된 보완점", before: repeated(previous) ? `${repeated(previous)}개` : "없음", after: repeated(session) ? `${repeated(session)}개` : "없음" });
+  }
+  return deltas.length ? { previousAttemptId: previous.id, attemptNumber: previous.questionIds.length, deltas } : undefined;
+}
+
+function mockNextAction(input: MockTrainingLoopInput, session: InterviewSession): TrainingLoopAction | undefined {
+  const airlineId = session.airlineId;
+  // The mock that was just completed is never proposed again; a retake is the user's explicit choice.
+  if (!(input.applicationAnswerCount ?? 0)) {
+    return { kind: "next", label: "지원서 답변 작성", reason: "저장한 지원서 답변이 아직 없습니다.", target: { kind: "application_coach", airlineId } };
+  }
+  if (input.journeyAction && airlineId) {
+    return { kind: "next", label: input.journeyAction.label, reason: input.journeyAction.reason, target: journeyActionTarget(input.journeyAction, airlineId) };
+  }
+  const openQueue = (input.queue ?? []).find((item) => item.status === "open");
+  if (openQueue) {
+    return { kind: "next", label: "재연습 큐의 다음 질문", reason: "재연습 큐에 저장한 질문이 남아 있습니다.", target: { kind: "interview_question", questionId: openQueue.questionId, airlineId: openQueue.airlineId, queueItemId: openQueue.id } };
+  }
+  if (!(input.selfIntroductions ?? []).some((item) => item.completed)) {
+    return { kind: "next", label: "60초 자기소개 연습", reason: "완료한 자기소개 기록이 아직 없습니다.", target: { kind: "self_introduction", targetSeconds: 60 } };
+  }
+  if (input.dailyFallback) return { kind: "next", label: "오늘의 기본 연습", reason: "이어할 작업이 없어 기본 훈련을 이어갑니다.", target: input.dailyFallback };
+  return undefined;
+}
+
+export function buildMockTrainingLoopModel(input: MockTrainingLoopInput): TrainingLoopModel {
+  const session = input.session ?? null;
+  const attempts = input.attempts ?? [];
+  const baseContext: TrainingLoopContext = {
+    trainingType: "mock_interview",
+    ...input.context,
+    airlineId: input.context?.airlineId ?? session?.airlineId,
+    // A mock has no single question id; one of its questions must never stand in for the session.
+    questionId: undefined,
+    origin: input.context?.origin ?? "direct",
+    mockSessionId: input.context?.mockSessionId ?? session?.id,
+    mockConfigId: input.context?.mockConfigId ?? (session ? mockConfigId(session) : undefined),
+    questionIds: input.context?.questionIds ?? session?.questionIds,
+    attemptIds: input.context?.attemptIds ?? session?.attemptIds,
+    completedQuestionCount: input.context?.completedQuestionCount ?? (session ? sessionAttempts(session, attempts).length : undefined),
+    previousSessionId: input.context?.previousSessionId ?? (session ? previousMockSessionsFor(session, input.sessions ?? [])[0]?.id : undefined),
+  };
+
+  if (!isMockSessionComplete(session) || !session) {
+    return {
+      context: baseContext,
+      evidenceMode: session ? mockEvidenceMode(session, attempts) : "text_practice",
+      completed: false,
+      strengths: [],
+      improvementPoints: [],
+      noImprovementFound: false,
+      history: [],
+      favorited: false,
+      queued: false,
+      summary: { completedLabel: "미완료", improvementCount: 0, previousAttemptCount: 0 },
+    };
+  }
+
+  const mode = mockEvidenceMode(session, attempts);
+  const improvementPoints = mockImprovements(session, attempts, mode);
+  const previous = previousMockSessionsFor(session, input.sessions ?? []);
+  const retakeTarget: DailyActionTarget = { kind: "mock_start", airlineId: session.airlineId };
+  const focusPoint = improvementPoints[0];
+
+  return {
+    context: baseContext,
+    evidenceMode: mode,
+    completed: true,
+    strengths: mockStrengths(session, mode),
+    improvementPoints,
+    noImprovementFound: improvementPoints.length === 0,
+    comparison: mockComparison(session, previous[0], attempts, mode),
+    history: previous.slice(0, MAX_TRAINING_HISTORY).map((item) => ({
+      attemptId: item.id,
+      attemptNumber: sessionAttempts(item, attempts).length,
+      occurredAt: item.completedAt ?? item.startedAt,
+      durationSeconds: sessionDuration(item, attempts),
+    })),
+    retakeAction: { kind: "retake", label: "같은 모의면접 다시 연습", reason: "같은 구성으로 새 모의면접을 기록합니다.", target: retakeTarget },
+    focusedRetakeAction: focusPoint ? { kind: "focused_retake", label: "이 항목에 집중해서 다시 모의면접", reason: focusPoint.message, target: retakeTarget, focusKey: focusPoint.key } : undefined,
+    nextAction: mockNextAction(input, session),
     favorited: false,
     queued: false,
     summary: { completedLabel: "완료", improvementCount: improvementPoints.length, previousAttemptCount: previous.length },

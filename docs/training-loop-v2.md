@@ -109,10 +109,48 @@ The self-introduction result uses the **same contract and the same `TrainingLoop
 
 **Integration.** Completion still flows through the existing engines; the loop adds no counter. Verified in production-like local QA: a Jin Air self introduction moved Home from `자기소개 0회` to `1회`, added *Jin Air · 자기소개 완료* to recent activity, dropped the self-introduction gap and advanced the airline next action.
 
-Mock and application results are deliberately **not** connected yet.
+## Mock interview (phase 3)
+
+Same contract, same `TrainingLoopPanel`. `buildMockTrainingLoopModel()` joins the interview and self-introduction builders in `lib/training-loop.ts`.
+
+**The session is the unit.** A mock is one session, never one of its questions: `questionId` stays `undefined` and one question can never stand in for the whole exercise. `mockConfigId()` identifies the exercise as `mode:airline:questionCount` (e.g. `airline_specific:jin_air:5`), and only sessions with the same configuration are compared — a different mode, airline or question count makes comparison unavailable.
+
+**Completion integrity.** `isMockSessionComplete()` requires `session.status === "completed"`. Answering the first question does not finish a mock, and an unfinished session gets no retake, no next and no history. Follow-up attempts are excluded from the session's question count.
+
+**Evidence.** Strengths come from `session.sessionAnalysis.strengths` (the existing session analyzer already caps them at 3); improvements from `sessionAnalysis.improvements` plus cross-question aggregation. `repeatedMockIssues()` reports an issue seen in **two or more** questions once, with its count — *"Result이(가) 2개 문항에서 반복됐습니다."* An unanswered remainder is stated factually: *"5문항 중 3문항을 기록했습니다."* Per-question feedback is never duplicated wholesale into the summary.
+
+The session's evidence mode is the strongest any of its answers actually carries, so an **audio-only** mock shows no transcript-based strengths or improvements, and a text mock shows no audio metrics. Nonverbal data never enters the loop's points and is not summed into any score.
+
+**Retake.** *같은 모의면접 다시 연습* reopens the existing mock launcher so the same configuration is chosen again; `previousSessionId`, the airline and the config live on the context. No new mock store and no new retake engine.
+
+**Comparison** — measured facts only:
+
+```
+기록한 문항 2/3 → 3/3
+총 답변 시간 270초 → 180초
+추임새 5회 → 2회        (actual_audio on both sides only)
+긴 쉼 3회 → 1회         (audio evidence on both sides only)
+반복된 보완점 2개 → 없음
+```
+
+**Next ladder** (the mock just completed is never proposed again):
+
+| rule | condition | next |
+|---|---|---|
+| A | no saved application answer | 지원서 답변 |
+| B | the target airline journey has a next step | that journey action |
+| C | an open retake-queue item | that question |
+| D | no completed self-introduction | 60초 자기소개 |
+| E | otherwise | the existing daily plan target |
+
+**Integration.** Counting stays session-based. Verified in local QA against a Jin Air `airline_specific:jin_air:5` mock: Home moved to `모의면접 1회` while the same five answers counted as `면접 연습 5회`, and the Jin Air journey showed `Mock 1회 / 면접 연습 5회`. A generic mock (no airline) is correctly excluded from that airline's journey, because the journey filters sessions on `airlineId`.
+
+Application results are deliberately **not** connected yet; the loop only offers Application as a next action.
 
 ## Tests
 
 `lib/training-loop.test.ts` — 34 deterministic tests: fresh user, the four training types, strength/improvement caps and ordering, the no-improvement wording, retake lineage, airline/question/provenance preservation, the audio-only and text-practice boundaries, all six next-action rules, the repeat guard, comparison scoping (same question, same airline, different id), history cap and order, incomplete-attempt handling, favorite/queue reporting, the readiness/probability/trait guard, focused retake, summary counts and determinism.
 
 `lib/self-intro-training-loop.test.ts` — 30 deterministic tests: the shared model for a self introduction, all three duration modes, both languages, same-mode/same-language comparison and the exclusions, generic versus airline context, retake lineage, the audio-only and text boundaries, strength/improvement caps, the trait and readiness guard, the factual duration pair, focused retake, the no-repeat rule, all four next-action rules, history cap, incomplete handling, cross-airline isolation, determinism and a Single Interview regression guard.
+
+`lib/mock-training-loop.test.ts` — 33 deterministic tests: the shared model for a mock, completion integrity (unfinished and first-question-only), generic versus airline context, configuration identity and the comparison exclusions, strength/improvement caps, cross-question repeated issues, the audio-only and text boundaries, nonverbal separation, retake lineage, focused retake, the score/trait guard, completion and duration deltas, history cap, all five next-action rules, the no-repeat rule, session-not-question counting, follow-up exclusion, cross-airline isolation, resume boundary, provenance, determinism, and Single Interview / Self Introduction regression guards.
