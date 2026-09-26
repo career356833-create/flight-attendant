@@ -66,6 +66,15 @@ import {
 import { loadInterviewAttempts } from "@/lib/interview-practice-data";
 import { interviewPracticeQueueRepository } from "@/lib/interview-practice-queue";
 import { AnalysisProvenanceHint } from "@/components/analysis-provenance-hint";
+import { TrainingLoopPanel } from "@/components/interview-practice/interview-practice-components";
+import {
+  applicationRewriteEvidence,
+  buildApplicationTrainingLoopModel,
+  type TrainingLoopAction,
+} from "@/lib/training-loop";
+import { loadSelfIntroductionAttempts } from "@/lib/self-introduction-data";
+import { loadInterviewSessions } from "@/lib/mock-interview-session";
+import { questionProvenanceLabels } from "@/lib/airline-question-provenance";
 
 const t = ko.applicationCoach;
 const documentTypes = Object.keys(t.documents) as ApplicationDocumentType[];
@@ -81,7 +90,10 @@ type Step =
   | "analysis"
   | "detail"
   | "versions"
-  | "convert";
+  | "convert"
+  /** Rewriting a saved answer: the same editor and the same analyzer, saved as the next version. */
+  | "rewrite"
+  | "rewrite_analysis";
 const card =
   "rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
 
@@ -929,6 +941,7 @@ export function ApplicationDraftEditor({
   onChange,
   onAnalyze,
   onBack,
+  focusNote,
 }: {
   prompt: ApplicationPrompt;
   airlineId?: string;
@@ -936,6 +949,8 @@ export function ApplicationDraftEditor({
   onChange: (s: string) => void;
   onAnalyze: () => void;
   onBack: () => void;
+  /** Reference only: the improvement point the user chose to work on. Never applied to the text. */
+  focusNote?: string;
 }) {
   const [comparison, setComparison] = useState<string>();
   function suggest(kind: string) {
@@ -964,6 +979,14 @@ export function ApplicationDraftEditor({
       <p className="rounded-xl bg-secondary/50 p-3 text-sm font-semibold leading-relaxed">
         {prompt.prompt}
       </p>
+      {focusNote ? (
+        <p
+          data-testid="application-rewrite-focus"
+          className="mt-3 rounded-xl border border-gold/50 bg-gold/10 p-3 text-xs leading-relaxed text-midnight"
+        >
+          집중해서 다듬을 항목 · {focusNote}
+        </p>
+      ) : null}
       <div className="mt-4">
         <CharacterLimitIndicator content={draft.content} prompt={prompt} />
       </div>
@@ -1187,6 +1210,7 @@ export function ApplicationAnswerDetail({
   onPractice,
   onWeeklyReturn,
   onJourneyReturn,
+  onTrainingLoopAction,
 }: {
   answer: ApplicationAnswer;
   onBack: () => void;
@@ -1195,10 +1219,11 @@ export function ApplicationAnswerDetail({
   onPractice: (candidate: ApplicationInterviewDrillCandidate) => void;
   onWeeklyReturn?: () => void;
   onJourneyReturn?: () => void;
+  /** Present when the saved answer can enter the shared training loop (rewrite or next practice). */
+  onTrainingLoopAction?: (action: TrainingLoopAction) => void;
 }) {
-  const version = listAnswerVersions(answer.id).find(
-    (v) => v.id === answer.currentVersionId,
-  );
+  const versions = listAnswerVersions(answer.id);
+  const version = versions.find((v) => v.id === answer.currentVersionId);
   const drills = selectApplicationInterviewDrills({
       answer,
       version,
@@ -1225,6 +1250,15 @@ export function ApplicationAnswerDetail({
         <span className="text-xs font-semibold text-gold">
           {airlineName} · {t.documents[answer.documentType]}
         </span>
+        {/* The question's provenance travels with the answer, so an archived official question keeps
+            saying it is archived here and is never shown as a current one. */}
+        {answer.journeyContext?.provenance ? (
+          <p data-testid="application-answer-provenance" className="mt-2 text-xs text-muted-foreground">
+            질문 출처 {questionProvenanceLabels[answer.journeyContext.provenance]}
+            {answer.journeyContext.recruitmentPeriod ? ` · ${answer.journeyContext.recruitmentPeriod}` : ""}
+            {answer.journeyContext.provenance === "OFFICIAL_ARCHIVE" ? " · 현재 채용 질문과 다를 수 있습니다." : ""}
+          </p>
+        ) : null}
         <p className="mt-4 whitespace-pre-wrap text-sm leading-7">
           {version?.content}
         </p>
@@ -1291,6 +1325,22 @@ export function ApplicationAnswerDetail({
           {t.otherAirline}
         </button>
       </div>
+      {/* The saved answer is the review point of the shared loop: the repository already holds this
+          answer and its version, so nothing here completes anything on its own. The next practice is
+          derived from the drill this answer produced plus the user's existing records. */}
+      {onTrainingLoopAction ? (
+        <TrainingLoopPanel
+          loop={buildApplicationTrainingLoopModel({
+            answer,
+            versions,
+            attempts: loadInterviewAttempts(),
+            selfIntroductions: loadSelfIntroductionAttempts(),
+            sessions: loadInterviewSessions(),
+            interviewQuestionId: drills[0]?.questionId,
+          })}
+          onAction={onTrainingLoopAction}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -1303,6 +1353,7 @@ export function ApplicationCoach({
   weeklyReturnAnswerId,
   onWeeklyReturn,
   initialJourneyContext,
+  onTrainingLoopNext,
 }: {
   onExit: () => void;
   onOpenExperience: (context?: AirlineJourneyContext) => void;
@@ -1313,6 +1364,8 @@ export function ApplicationCoach({
   weeklyReturnAnswerId?: string;
   onWeeklyReturn?: () => void;
   initialJourneyContext?: AirlineJourneyContext;
+  /** Only "next" leaves the coach; a rewrite stays here so the answer context is never rebuilt. */
+  onTrainingLoopNext?: (action: TrainingLoopAction) => void;
 }) {
   // Canonical journey draft first, then the legacy "active" draft saved for the same airline before canonical ids existed.
   const journeyDraft = initialJourneyContext ? findJourneyWorkDraft(initialJourneyContext) : undefined;
@@ -1330,7 +1383,10 @@ export function ApplicationCoach({
     [coreMessage, setCoreMessage] = useState(journeyDraft?.coreMessage ?? ""),
     [draft, setDraft] = useState<ApplicationDraft>(),
     [analysis, setAnalysis] = useState<ApplicationAnswerAnalysis>(),
-    [current, setCurrent] = useState<ApplicationAnswer>();
+    [current, setCurrent] = useState<ApplicationAnswer>(),
+    // A rewrite of a saved answer: its own prompt, draft and analysis, so the create flow is untouched.
+    [rewrite, setRewrite] = useState<{ prompt: ApplicationPrompt; draft: ApplicationDraft; focusNote?: string; focusKey?: string }>(),
+    [rewriteAnalysis, setRewriteAnalysis] = useState<ApplicationAnswerAnalysis>();
   const experiences = experienceRepository.load().experiences;
   // Journey context that identifies this draft: the question's own context, or the airline-only ("general") context
   // when the coach was opened from an airline workspace without a specific question.
@@ -1401,6 +1457,85 @@ export function ApplicationCoach({
     );
     setStep("editor");
   }
+  /**
+   * The prompt this saved answer answers. The question's own journey context wins, then the prompt the
+   * repository still lists for it; only when neither exists is a prompt rebuilt from the answer itself,
+   * and that fallback is marked as the user's own input so a template is never promoted to official.
+   */
+  function promptForSavedAnswer(answer: ApplicationAnswer): ApplicationPrompt {
+    const fromJourney = applicationPromptFromJourneyContext(answer.journeyContext);
+    if (fromJourney) return fromJourney;
+    const stored = listPrompts(answer.airlineId).find((item) => item.id === answer.promptId);
+    if (stored) return stored;
+    return {
+      id: answer.promptId,
+      airlineId: answer.airlineId,
+      documentType: answer.documentType,
+      prompt: answer.customPrompt ?? answer.title,
+      locale: "ko",
+      sourceType: "custom_user_input",
+      sourceIds: [],
+      recommendedStructure: "custom",
+      targetCapabilities: [],
+      status: "custom",
+      journeyContext: answer.journeyContext,
+    };
+  }
+
+  /** Opens the saved answer in the existing editor. Nothing is generated: the current version's own
+   * text is the starting point and the evidence is the experiences still linked to the answer. */
+  function openRewrite(answer: ApplicationAnswer, action: TrainingLoopAction) {
+    const version = listAnswerVersions(answer.id).find((item) => item.id === answer.currentVersionId);
+    if (!version) return;
+    const rewritePrompt = promptForSavedAnswer(answer);
+    const content = version.content;
+    setRewriteAnalysis(undefined);
+    setRewrite({
+      prompt: rewritePrompt,
+      draft: {
+        id: `rewrite-${version.id}`,
+        promptId: rewritePrompt.id,
+        airlineId: answer.airlineId,
+        documentType: answer.documentType,
+        content,
+        characterCount: content.length,
+        wordCount: content.trim() ? content.trim().split(/\s+/).length : 0,
+        evidence: applicationRewriteEvidence(answer, content),
+        knowledgeSources: version.knowledgeSources,
+        coachingInsightIds: version.coachingInsightIds,
+        experienceIds: version.experienceIds ?? answer.selectedExperienceIds,
+        version: version.version,
+        createdAt: version.createdAt,
+      },
+      focusNote: action.kind === "focused_retake" ? action.reason : undefined,
+      focusKey: action.focusKey,
+    });
+    setStep("rewrite");
+  }
+
+  /** Saves the rewrite as the next version of the same answer; the previous version is never overwritten. */
+  function saveRewrite() {
+    if (!current || !rewrite || !rewriteAnalysis) return;
+    const reasons: ApplicationAnswerVersion["changeReason"][] = ["specificity", "role_connection", "airline_connection", "concise", "tone_change"];
+    const matched = reasons.find((reason) => rewrite.focusKey?.endsWith(reason));
+    const version = createAnswerVersion(current.id, rewrite.draft.content, matched ?? "manual_edit", rewriteAnalysis);
+    if (!version) return;
+    const refreshed = getApplicationAnswer(current.id);
+    if (refreshed) setCurrent(refreshed);
+    setSaved(listApplicationAnswers());
+    setRewrite(undefined);
+    setRewriteAnalysis(undefined);
+    setStep("detail");
+  }
+
+  function handleTrainingLoopAction(answer: ApplicationAnswer, action: TrainingLoopAction) {
+    if (action.kind === "retake" || action.kind === "focused_retake") {
+      openRewrite(answer, action);
+      return;
+    }
+    onTrainingLoopNext?.(action);
+  }
+
   function save() {
     if (!prompt || !draft || !analysis) return;
     const selected = experiences.filter((e) =>
@@ -1536,6 +1671,51 @@ export function ApplicationCoach({
         onBack={() => setStep("editor")}
       />
     );
+  if (step === "rewrite" && current && rewrite)
+    return (
+      <ApplicationDraftEditor
+        prompt={rewrite.prompt}
+        airlineId={current.airlineId}
+        draft={rewrite.draft}
+        focusNote={rewrite.focusNote}
+        onChange={(content) =>
+          setRewrite({
+            ...rewrite,
+            draft: {
+              ...rewrite.draft,
+              content,
+              characterCount: content.length,
+              wordCount: content.trim() ? content.trim().split(/\s+/).length : 0,
+            },
+          })
+        }
+        onAnalyze={() => {
+          setRewriteAnalysis(
+            analyzeApplicationAnswerWithAirlineContext(
+              rewrite.draft.content,
+              rewrite.prompt,
+              rewrite.draft.evidence,
+              current.airlineId,
+            ),
+          );
+          setStep("rewrite_analysis");
+        }}
+        onBack={() => {
+          setRewrite(undefined);
+          setStep("detail");
+        }}
+      />
+    );
+  if (step === "rewrite_analysis" && current && rewrite && rewriteAnalysis)
+    return (
+      <ApplicationAnalysisResult
+        analysis={rewriteAnalysis}
+        prompt={rewrite.prompt}
+        draft={rewrite.draft}
+        onSave={saveRewrite}
+        onBack={() => setStep("rewrite")}
+      />
+    );
   if (step === "versions" && current)
     return (
       <AnswerVersionHistory
@@ -1570,6 +1750,7 @@ export function ApplicationCoach({
         onVersions={() => setStep("versions")}
         onConvert={() => setStep("convert")}
         onPractice={onPractice}
+        onTrainingLoopAction={(action) => handleTrainingLoopAction(current, action)}
       />
     );
   return (

@@ -7,6 +7,7 @@ import type { InterviewPracticeQueueItem, InterviewQuestionFavorite } from "@/li
 import type { AirlineJourneyAction } from "@/lib/airline-target-journey";
 import type { DailyActionTarget } from "@/lib/daily-action-plan";
 import type { AirlineQuestionProvenance } from "@/lib/airline-question-provenance";
+import type { ApplicationAnswer, ApplicationAnswerAnalysis, ApplicationAnswerVersion, ApplicationPrompt, DraftEvidence } from "@/lib/application-answer-repository";
 import { journeyActionTarget } from "@/lib/airline-preparation-home";
 
 /**
@@ -43,6 +44,18 @@ export type TrainingLoopContext = {
   attemptIds?: string[];
   completedQuestionCount?: number;
   previousSessionId?: string;
+  /**
+   * Application only: the saved answer is the unit of practice and the prompt identifies the exercise.
+   * `applicationSourceType` keeps a practice template apart from an official application question, and
+   * `recruitmentYear` travels with `recruitmentPeriod` so an archived question stays archived.
+   */
+  promptId?: string;
+  applicationAnswerId?: string;
+  applicationVersion?: number;
+  applicationSourceType?: ApplicationPrompt["sourceType"];
+  selectedExperienceIds?: string[];
+  recruitmentYear?: number;
+  previousVersionId?: string;
 };
 
 export type TrainingLoopPoint = { key: string; message: string; source: "content_analysis" | "speech_metrics" | "audio_metrics" | "timing" };
@@ -692,6 +705,229 @@ export function buildMockTrainingLoopModel(input: MockTrainingLoopInput): Traini
     retakeAction: { kind: "retake", label: "같은 모의면접 다시 연습", reason: "같은 구성으로 새 모의면접을 기록합니다.", target: retakeTarget },
     focusedRetakeAction: focusPoint ? { kind: "focused_retake", label: "이 항목에 집중해서 다시 모의면접", reason: focusPoint.message, target: retakeTarget, focusKey: focusPoint.key } : undefined,
     nextAction: mockNextAction(input, session),
+    favorited: false,
+    queued: false,
+    summary: { completedLabel: "완료", improvementCount: improvementPoints.length, previousAttemptCount: previous.length },
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Application answer
+ *
+ * The unit of practice is the saved answer, and the exercise is identified by the prompt it answers —
+ * not by the answer text, so the same wording written for another airline or another question is a
+ * different exercise. Opening the editor or the analysis screen finishes nothing: the loop treats an
+ * answer as done only once the repository actually holds a version of it.
+ * ------------------------------------------------------------------ */
+
+export type ApplicationTrainingLoopInput = {
+  answer?: ApplicationAnswer | null;
+  /** Versions as the repository stores them; rows for other answers are ignored. */
+  versions?: ApplicationAnswerVersion[];
+  attempts?: InterviewAttempt[];
+  selfIntroductions?: SelfIntroductionAttempt[];
+  sessions?: InterviewSession[];
+  /** An interview question already derived from this answer (the existing drill selection), if any. */
+  interviewQuestionId?: string;
+  queue?: InterviewPracticeQueueItem[];
+  journeyAction?: AirlineJourneyAction | null;
+  dailyFallback?: DailyActionTarget;
+  context?: Partial<TrainingLoopContext>;
+};
+
+/** Versions of this answer only, newest version number first. */
+export function applicationVersionsFor(answer: ApplicationAnswer, versions: ApplicationAnswerVersion[]): ApplicationAnswerVersion[] {
+  return versions.filter((item) => item.answerId === answer.id).sort((a, b) => b.version - a.version || b.createdAt.localeCompare(a.createdAt));
+}
+
+export const applicationCurrentVersion = (answer: ApplicationAnswer, versions: ApplicationAnswerVersion[]) =>
+  applicationVersionsFor(answer, versions).find((item) => item.id === answer.currentVersionId);
+
+/**
+ * A saved answer: the repository holds the answer and the version it points at. A work draft has no
+ * answer at all, and an answer whose current version is missing is not treated as practice done.
+ */
+export function isApplicationAnswerSaved(answer: ApplicationAnswer | null | undefined, versions: ApplicationAnswerVersion[]): boolean {
+  return Boolean(answer && applicationCurrentVersion(answer, versions));
+}
+
+/** Previous versions of the same answer — a different answer, question or airline is never compared. */
+export function previousApplicationVersionsFor(answer: ApplicationAnswer, versions: ApplicationAnswerVersion[]): ApplicationAnswerVersion[] {
+  const current = applicationCurrentVersion(answer, versions);
+  if (!current) return [];
+  return applicationVersionsFor(answer, versions).filter((item) => item.id !== current.id && item.version < current.version);
+}
+
+/** The experiences this version was written with; a version without its own list inherits the answer's links. */
+const versionExperienceIds = (answer: ApplicationAnswer, version: ApplicationAnswerVersion) => version.experienceIds ?? answer.selectedExperienceIds;
+
+const needsImprovement = (analysis: ApplicationAnswerAnalysis | undefined) =>
+  (analysis?.evaluations ?? []).filter((item) => item.status === "needs_improvement");
+const missingRubricElements = (analysis: ApplicationAnswerAnalysis | undefined) =>
+  (analysis?.rubric?.findings ?? []).filter((item) => item.status === "needs_improvement");
+const sentenceCount = (content: string) => content.split(/(?<=[.!?。]|다\.|요\.)\s+|\n+/).map((item) => item.trim()).filter(Boolean).length;
+
+function applicationStrengths(version: ApplicationAnswerVersion, mode: TrainingEvidenceMode): TrainingLoopPoint[] {
+  if (!transcriptEvidenceAllowed(mode)) return [];
+  const analysis = version.analysis;
+  const rows: TrainingLoopPoint[] = [];
+  for (const item of (analysis?.evaluations ?? []).filter((row) => row.status === "strong").sort((a, b) => b.score - a.score)) {
+    const message = trimmed(item.feedback);
+    if (message) rows.push({ key: `application-strength-${item.key}`, message: `${item.label}: ${message}`, source: "content_analysis" });
+  }
+  for (const value of analysis?.rubric?.strengths ?? []) {
+    const message = trimmed(value);
+    if (message) rows.push({ key: `application-rubric-strength-${rows.length}`, message, source: "content_analysis" });
+  }
+  const seen = new Set<string>();
+  return rows.filter((row) => (seen.has(row.message) ? false : (seen.add(row.message), true))).slice(0, MAX_TRAINING_STRENGTHS);
+}
+
+function applicationImprovements(version: ApplicationAnswerVersion, mode: TrainingEvidenceMode): TrainingLoopPoint[] {
+  if (!transcriptEvidenceAllowed(mode)) return [];
+  const analysis = version.analysis;
+  const rows: TrainingLoopPoint[] = [];
+  for (const item of needsImprovement(analysis).sort((a, b) => a.score - b.score)) {
+    const message = trimmed(item.feedback);
+    if (message) rows.push({ key: `application-improvement-${item.key}`, message: `${item.label}: ${message}`, source: "content_analysis" });
+  }
+  const generic = trimmed(analysis?.genericExpressionWarning);
+  if (generic) rows.push({ key: "application-generic", message: generic, source: "content_analysis" });
+  for (const item of missingRubricElements(analysis)) {
+    const message = trimmed(item.feedback);
+    if (message) rows.push({ key: `application-rubric-${item.dimension}`, message, source: "content_analysis" });
+  }
+  for (const value of analysis?.missingCompetency ?? []) {
+    const message = trimmed(value);
+    if (message) rows.push({ key: `application-missing-${message}`, message: `${message} 근거가 아직 확인되지 않았습니다.`, source: "content_analysis" });
+  }
+  const seen = new Set<string>();
+  return rows.filter((row) => (seen.has(row.message) ? false : (seen.add(row.message), true))).slice(0, MAX_TRAINING_IMPROVEMENTS);
+}
+
+/**
+ * Measured differences between this version and the one before it. Every row is a value both versions
+ * actually carry — never an improvement score, a percentage or a verdict. Analyzer counts are compared
+ * only when both versions stored an analysis, so a version that was never analysed is left out.
+ */
+function applicationComparison(answer: ApplicationAnswer, version: ApplicationAnswerVersion, previous: ApplicationAnswerVersion | undefined): TrainingLoopComparison | undefined {
+  if (!previous) return undefined;
+  const deltas: TrainingLoopDelta[] = [];
+  deltas.push({ key: "length", label: "답변 길이", before: `${previous.characterCount}자`, after: `${version.characterCount}자` });
+  const sentencesBefore = sentenceCount(previous.content), sentencesAfter = sentenceCount(version.content);
+  if (sentencesBefore || sentencesAfter) deltas.push({ key: "sentences", label: "문장 수", before: `${sentencesBefore}개`, after: `${sentencesAfter}개` });
+  const experiencesBefore = versionExperienceIds(answer, previous).length, experiencesAfter = versionExperienceIds(answer, version).length;
+  deltas.push({ key: "experience", label: "연결 경험", before: `${experiencesBefore}개`, after: `${experiencesAfter}개` });
+  if (previous.analysis && version.analysis) {
+    const before = needsImprovement(previous.analysis).length, after = needsImprovement(version.analysis).length;
+    deltas.push({ key: "improvement_count", label: "보완 항목", before: before ? `${before}개` : "없음", after: after ? `${after}개` : "없음" });
+    const missingBefore = missingRubricElements(previous.analysis).length, missingAfter = missingRubricElements(version.analysis).length;
+    deltas.push({ key: "missing", label: "누락 요소", before: missingBefore ? `${missingBefore}개` : "없음", after: missingAfter ? `${missingAfter}개` : "없음" });
+  }
+  return { previousAttemptId: previous.id, attemptNumber: previous.version, deltas };
+}
+
+/**
+ * The deterministic ladder after a saved answer. A rewrite is always the user's explicit choice, so the
+ * answer that was just saved is never proposed here and the ladder never sends the user back to the
+ * application coach.
+ */
+function applicationNextAction(input: ApplicationTrainingLoopInput, answer: ApplicationAnswer): TrainingLoopAction | undefined {
+  const airlineId = answer.airlineId;
+  if (!(input.attempts ?? []).some((item) => item.completed) && input.interviewQuestionId) {
+    return { kind: "next", label: "예상 질문 면접 연습", reason: "저장한 답변을 면접 답변으로도 말해 보세요.", target: { kind: "interview_question", questionId: input.interviewQuestionId, airlineId } };
+  }
+  if (!(input.selfIntroductions ?? []).some((item) => item.completed)) {
+    return { kind: "next", label: "60초 자기소개 연습", reason: "완료한 자기소개 기록이 아직 없습니다.", target: { kind: "self_introduction", targetSeconds: 60 } };
+  }
+  if (!(input.sessions ?? []).some((item) => item.status === "completed")) {
+    return { kind: "next", label: "모의면접 시작", reason: "완료한 모의면접 기록이 아직 없습니다.", target: { kind: "mock_start", airlineId } };
+  }
+  if (input.journeyAction && airlineId) {
+    return { kind: "next", label: input.journeyAction.label, reason: input.journeyAction.reason, target: journeyActionTarget(input.journeyAction, airlineId) };
+  }
+  if (input.dailyFallback) return { kind: "next", label: "오늘의 기본 연습", reason: "이어할 작업이 없어 기본 훈련을 이어갑니다.", target: input.dailyFallback };
+  return undefined;
+}
+
+/**
+ * The evidence a saved answer can honestly support: typed text with a stored analysis allows content
+ * points, and an answer saved without analysis carries none. Speech and audio evidence never apply.
+ */
+export function applicationEvidenceMode(version: ApplicationAnswerVersion | undefined): TrainingEvidenceMode {
+  return trainingEvidenceMode(version ? { transcript: version.content } : null);
+}
+
+/**
+ * Evidence for re-analysing a rewrite. Version rows do not store sentence evidence, so it is rebuilt
+ * from what is still true of the answer: the experiences it is linked to, and the saved text itself as
+ * the user's own answer. The original draft's airline or coaching evidence is never re-asserted, and an
+ * experience that is no longer linked is never claimed.
+ */
+export function applicationRewriteEvidence(answer: ApplicationAnswer, content?: string): DraftEvidence[] {
+  const rows: DraftEvidence[] = answer.experienceSnapshots
+    .filter((item) => answer.selectedExperienceIds.includes(item.id))
+    .map((item) => ({ sentenceId: `experience-${item.id}`, sourceType: "experience" as const, sourceId: item.id, sourceExcerpt: trimmed(item.shortSummary) || trimmed(item.title) }));
+  const text = trimmed(content);
+  if (text) rows.push({ sentenceId: "saved-answer", sourceType: "user_answer", sourceId: answer.currentVersionId, sourceExcerpt: text.slice(0, 180) });
+  return rows;
+}
+
+export function buildApplicationTrainingLoopModel(input: ApplicationTrainingLoopInput): TrainingLoopModel {
+  const answer = input.answer ?? null;
+  const versions = input.versions ?? [];
+  const current = answer ? applicationCurrentVersion(answer, versions) : undefined;
+  const journey = answer?.journeyContext;
+  const baseContext: TrainingLoopContext = {
+    trainingType: "application_answer",
+    ...input.context,
+    airlineId: input.context?.airlineId ?? answer?.airlineId,
+    // An answer is identified by the question it answers; a generic template keeps questionId undefined.
+    questionId: input.context?.questionId ?? journey?.questionId,
+    questionProvenance: input.context?.questionProvenance ?? journey?.provenance,
+    recruitmentPeriod: input.context?.recruitmentPeriod ?? journey?.recruitmentPeriod,
+    recruitmentYear: input.context?.recruitmentYear ?? journey?.recruitmentYear,
+    origin: input.context?.origin ?? (journey?.origin === "airline_workspace" ? "airline_workspace" : "direct"),
+    promptId: input.context?.promptId ?? answer?.promptId,
+    applicationAnswerId: input.context?.applicationAnswerId ?? answer?.id,
+    applicationVersion: input.context?.applicationVersion ?? current?.version,
+    selectedExperienceIds: input.context?.selectedExperienceIds ?? answer?.selectedExperienceIds,
+    previousVersionId: input.context?.previousVersionId ?? (answer ? previousApplicationVersionsFor(answer, versions)[0]?.id : undefined),
+  };
+
+  if (!answer || !current) {
+    return {
+      context: baseContext,
+      evidenceMode: applicationEvidenceMode(current),
+      completed: false,
+      strengths: [],
+      improvementPoints: [],
+      noImprovementFound: false,
+      history: [],
+      favorited: false,
+      queued: false,
+      summary: { completedLabel: "미완료", improvementCount: 0, previousAttemptCount: 0 },
+    };
+  }
+
+  const mode = applicationEvidenceMode(current);
+  const improvementPoints = applicationImprovements(current, mode);
+  const previous = previousApplicationVersionsFor(answer, versions);
+  const rewriteTarget: DailyActionTarget = { kind: "application_coach", airlineId: answer.airlineId, applicationAnswerId: answer.id };
+  const focusPoint = improvementPoints[0];
+
+  return {
+    context: baseContext,
+    evidenceMode: mode,
+    completed: true,
+    strengths: applicationStrengths(current, mode),
+    improvementPoints,
+    noImprovementFound: improvementPoints.length === 0,
+    comparison: applicationComparison(answer, current, previous[0]),
+    history: previous.slice(0, MAX_TRAINING_HISTORY).map((item) => ({ attemptId: item.id, attemptNumber: item.version, occurredAt: item.createdAt, durationSeconds: 0 })),
+    retakeAction: { kind: "retake", label: "같은 답변 다시 다듬기", reason: "같은 질문과 연결 경험으로 이 답변의 새 버전을 저장합니다.", target: rewriteTarget },
+    focusedRetakeAction: focusPoint ? { kind: "focused_retake", label: "이 항목에 집중해서 다시 다듬기", reason: focusPoint.message, target: rewriteTarget, focusKey: focusPoint.key } : undefined,
+    nextAction: applicationNextAction(input, answer),
     favorited: false,
     queued: false,
     summary: { completedLabel: "완료", improvementCount: improvementPoints.length, previousAttemptCount: previous.length },

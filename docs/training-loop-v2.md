@@ -170,3 +170,49 @@ What each screen shows:
 The guard is a render condition only: session progress, the per-question retry, attempt persistence, counting, Self Introduction and the mock report are untouched. Measured in local QA at 390px — standalone result panel present with 44px CTAs and attempt-2 comparison `답변 시간 16초 → 7초`; question 1–5 of a Quick 5 general mock showed `다음 질문` (48px) and `이 질문 다시 답하기` (44px) with zero `training-loop` nodes in the DOM; the finished session's report showed the mock panel with `같은 모의면접 다시 연습` and `다음 연습 · 지원서 답변 작성`. Horizontal overflow 0, console errors 0.
 
 `lib/mock-session-loop-guard.test.ts` — 8 deterministic tests: the render condition, the guard keying off the existing `sessionAction` prop instead of a new flag, the mock question keeping its session action and in-place retry, the mock report keeping its panel, the standalone retake and next ladder, the in-place standalone retake, session progress and mock counting untouched, and a Self Introduction regression guard covering both of its result branches.
+
+## Application answer (phase 5)
+
+Same contract, same `TrainingLoopPanel`. `buildApplicationTrainingLoopModel()` joins the three other builders in `lib/training-loop.ts`, and the application result needs no new screen: the **saved answer detail** (`ApplicationAnswerDetail`) is the review point, which is where the create flow already lands after a save and where an answer opened from the coach home already appears.
+
+**Completion integrity.** `isApplicationAnswerSaved()` requires both the answer row and the version it points at. Opening the editor finishes nothing, the analysis screen carries no loop panel, and a work draft — which is what the coach autosaves while the user is still assembling an answer — never produces a completed loop. A draft stays the **resume** item; a saved answer is **review and rewrite**.
+
+**Exercise identity.** The answer is identified by the question it answers, never by its text: `promptId` plus, for a workspace question, `questionId`, `questionProvenance`, `recruitmentPeriod` and `recruitmentYear` from the answer's journey context. The same wording saved for another question or another airline is a different exercise and is never compared. A practice template keeps `questionId` undefined and is never promoted to an official application question; the rewrite path rebuilds a missing prompt as the user's own input rather than as an official one. `OFFICIAL_ARCHIVE` stays archived and the detail screen says so next to the answer.
+
+**Evidence.** Strengths are the stored analysis's `strong` evaluations (highest score first) plus its rubric strengths; improvement points are its `needs_improvement` evaluations (lowest score first), its generic-expression warning, its rubric findings and its missing competencies. Caps: **strengths ≤ 3**, **improvements ≤ 3**, with the same *"이번 결과에서 추가로 확인된 보완 포인트가 없습니다."* wording when nothing was found. An answer's evidence mode is `text_analysis`, so speech and audio evidence never apply, and no trait, readiness or hiring value is produced.
+
+**Rewrite.** *같은 답변 다시 다듬기* reopens the saved answer in the **existing** `ApplicationDraftEditor` inside the coach, seeded with the current version's own text — nothing is generated or rewritten for the user. *이 항목에 집중해서 다시 다듬기* passes the first real improvement point as a reference line only. `airlineId`, `promptId`, `questionId`, provenance, recruitment context and the linked experiences all survive, and saving goes through `createAnswerVersion()`, so the version number increments and the previous version is kept. A focused rewrite whose point maps to a known change reason is stored with that reason (e.g. `airline_connection`).
+
+Version rows do not store sentence evidence, so a rewrite is re-analysed with evidence rebuilt from what is still true: the experiences the answer is linked to, plus the saved text as the user's own answer. The original draft's airline or coaching evidence is never re-asserted.
+
+**Comparison** — measured facts only, against the previous version of the same answer:
+
+```
+답변 길이 254자 → 354자
+문장 수 6개 → 7개
+연결 경험 0개 → 1개
+보완 항목 2개 → 3개          (only when both versions stored an analysis)
+누락 요소 없음 → 없음         (only when both versions stored an analysis)
+```
+
+A row can move in the unhelpful direction and is shown that way; there is no 향상도, no percentage and no verdict. No text diff is produced: the repo has no diff utility and this phase did not add a semantic one, so the change is reported as length and sentence counts. History keeps at most 3 previous versions.
+
+**Next ladder** (the answer just saved is never proposed again, and the ladder never sends the user back to the coach):
+
+| rule | condition | next |
+|---|---|---|
+| A | no completed interview attempt **and** this answer produced an interview drill | that question |
+| B | no completed self introduction | 60초 자기소개 |
+| C | no completed mock | 모의면접 |
+| D | the airline journey has a next step (airline answers only) | that journey action |
+| E | otherwise | the existing daily plan target |
+
+Only `next` leaves the coach; a rewrite stays inside it, so the answer context is never rebuilt from scratch.
+
+**Integration.** Counting stays with the repositories. Verified in local QA: saving a generic answer moved the coach home to `저장한 답변 1`, added *객실승무원을 지원한 이유를 작성해 주세요.* to Home recent activity and `이번 주 실제 활동 1회` to the learning log, and left every airline journey at 0 because a generic answer belongs to no airline. A second answer saved from the Jin Air workspace moved that journey to `지원서 답변 1개`, marked `지원서 답변 작성 · 1개 저장` complete and left the generic answer out of the count; Home then showed `지원서 답변 1개 · 확인된 공식 지원서 질문 없음`. **Zero denominator:** with no confirmed official application question the count is rendered as `1개`, never `1/0` — `applicationAnswerProgress()` is unchanged and still owns that rule. Daily and weekly completion keep flowing through the existing engines on a real save; the loop adds no counter and writes nothing.
+
+Jin Air has no confirmed official application question in the shipped data, so the official-question review path was verified by deterministic tests rather than by production data.
+
+### Tests
+
+`lib/application-training-loop.test.ts` — 42 deterministic tests: the shared model for a saved answer, the unsaved-draft and missing-version boundaries, generic versus airline context, official and archived question identity, provenance survival, strength/improvement caps and ordering, the trait guard, rewrite context preservation, focused rewrite, version increment, previous-version preservation, same-answer comparison and the different-answer / different-airline / same-text-different-question exclusions, experience links and the experience/length/missing-element deltas, the fake-improvement guard, history cap, all five next rules, the no-infinite-rewrite rule, Home counting and gap updates, the zero-denominator rule, journey counting and generic isolation, the resume boundary, and Single Interview / Self Introduction / Mock / mock-mid-session-guard regressions.
